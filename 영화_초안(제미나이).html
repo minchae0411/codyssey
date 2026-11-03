@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="ko" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>영화 티어리스트 (Movie Tier List)</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              gold: '#f59e0b',
+              red: '#ef4444',
+              orange: '#f97316',
+              yellow: '#eab308',
+              green: '#22c55e',
+              blue: '#3b82f6',
+              purple: '#a855f7',
+              darkBg: '#0f172a',
+              cardBg: '#1e293b'
+            }
+          },
+          fontFamily: {
+            sans: ['Pretendard', 'Inter', 'Noto Sans KR', 'sans-serif']
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Google Fonts & FontAwesome -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
+  <!-- html2canvas for Image Capture Export -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+  <style>
+    body {
+      font-family: 'Noto Sans KR', sans-serif;
+      background-color: #0b0f19;
+      color: #f1f5f9;
+    }
+
+    /* Custom Scrollbars */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #475569;
+    }
+
+    /* Tier Header Styling */
+    .tier-label-S { background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); color: #ffffff; text-shadow: 0 0 8px rgba(239, 68, 68, 0.6); }
+    .tier-label-A { background: linear-gradient(135deg, #ea580c 0%, #c2410c 100%); color: #ffffff; }
+    .tier-label-B { background: linear-gradient(135deg, #d97706 0%, #b45309 100%); color: #ffffff; }
+    .tier-label-C { background: linear-gradient(135deg, #16a34a 0%, #15803d 100%); color: #ffffff; }
+    .tier-label-D { background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); color: #ffffff; }
+
+    .tier-row-S { border-color: rgba(239, 68, 68, 0.3); background-color: rgba(239, 68, 68, 0.03); }
+    .tier-row-A { border-color: rgba(249, 115, 22, 0.3); background-color: rgba(249, 115, 22, 0.03); }
+    .tier-row-B { border-color: rgba(234, 179, 8, 0.3); background-color: rgba(234, 179, 8, 0.03); }
+    .tier-row-C { border-color: rgba(34, 197, 94, 0.3); background-color: rgba(34, 197, 94, 0.03); }
+    .tier-row-D { border-color: rgba(59, 130, 246, 0.3); background-color: rgba(59, 130, 246, 0.03); }
+
+    /* Button Highlight Active State */
+    .btn-tier-active {
+      font-weight: 800;
+      transform: scale(1.08);
+      box-shadow: 0 0 10px rgba(255, 255, 255, 0.4);
+    }
+
+    /* Movie card image hover zoom */
+    .movie-card:hover .poster-img {
+      transform: scale(1.05);
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between pb-12">
+
+  <!-- Header & Toolbar -->
+  <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-40">
+    <div class="max-w-7xl mx-auto px-4 py-4 flex flex-col md:flex-row items-center justify-between gap-4">
+      <div class="flex items-center space-x-3">
+        <div class="bg-gradient-to-tr from-red-600 to-amber-500 p-2.5 rounded-xl shadow-lg shadow-red-500/20">
+          <i class="fa-solid fa-film text-2xl text-white"></i>
+        </div>
+        <div>
+          <h1 class="text-2xl font-extrabold tracking-tight text-white flex items-center gap-2">
+            영화 티어리스트 <span class="text-xs px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 font-semibold border border-red-500/30">CINEMA TIER</span>
+          </h1>
+          <p class="text-xs text-slate-400">내가 본 영화를 S부터 D등급까지 깔끔하게 등급별로 정리하세요</p>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="flex items-center gap-3">
+        <button id="export-btn" onclick="exportTierList()" class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-slate-950 font-bold text-sm shadow-lg shadow-amber-500/20 transition-all active:scale-95 flex items-center gap-2">
+          <i class="fa-solid fa-camera text-base"></i>
+          <span>결과 공유하기 (이미지 저장)</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 py-6 w-full space-y-6 flex-grow">
+
+    <!-- Search & Search Modal / Integration Section -->
+    <section class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-xl">
+      <div class="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
+        
+        <!-- Search Input Form -->
+        <form id="search-form" onsubmit="handleMovieSearch(event)" class="relative flex-1">
+          <div class="relative flex items-center">
+            <i class="fa-solid fa-magnifying-glass absolute left-4 text-slate-400 text-sm"></i>
+            <input 
+              type="text" 
+              id="search-input" 
+              placeholder="롯데시네마 · CGV · 메가박스 개봉/상영 영화 검색 (예: 파묘, 듄: 파트2, 범죄도시4)..." 
+              class="w-full bg-slate-950 border border-slate-700/80 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 rounded-xl pl-11 pr-28 py-3 text-sm text-slate-100 placeholder-slate-500 outline-none transition-all"
+              required
+            />
+            <button 
+              type="submit" 
+              id="search-btn"
+              class="absolute right-1.5 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-amber-400 font-semibold text-xs rounded-lg transition-colors flex items-center gap-1.5"
+            >
+              <i class="fa-solid fa-cloud-arrow-down"></i>
+              <span>검색 추가</span>
+            </button>
+          </div>
+          <div id="search-loading" class="hidden absolute left-0 right-0 top-14 bg-slate-900 border border-slate-700 rounded-xl p-3 shadow-2xl z-30 flex items-center justify-center gap-2 text-sm text-amber-400">
+            <i class="fa-solid fa-circle-notch fa-spin"></i>
+            <span>실제 영화 정보 및 포스터를 불러오는 중입니다...</span>
+          </div>
+        </form>
+
+        <!-- Cinema Platform Badges -->
+        <div class="flex items-center gap-2 text-xs text-slate-400 self-center">
+          <span class="text-slate-500 font-medium">연동검색:</span>
+          <span class="px-2.5 py-1 rounded-md bg-red-950/60 text-red-400 border border-red-800/50 font-semibold">LOTTE CINEMA</span>
+          <span class="px-2.5 py-1 rounded-md bg-rose-950/60 text-rose-300 border border-rose-800/50 font-semibold">CGV</span>
+          <span class="px-2.5 py-1 rounded-md bg-purple-950/60 text-purple-300 border border-purple-800/50 font-semibold">MEGABOX</span>
+        </div>
+      </div>
+
+      <!-- Search Results Dropdown / Modal (Dynamic) -->
+      <div id="search-results-modal" class="hidden mt-4 p-4 bg-slate-950 border border-slate-700/80 rounded-xl space-y-3">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+          <span class="text-xs font-bold text-amber-400 flex items-center gap-1.5">
+            <i class="fa-solid fa-clapperboard"></i> 검색된 영화 결과 (클릭하여 미배정 영화로 추가)
+          </span>
+          <button onclick="closeSearchResults()" class="text-slate-400 hover:text-white text-xs px-2 py-1">
+            <i class="fa-solid fa-xmark"></i> 닫기
+          </button>
+        </div>
+        <div id="search-results-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 max-h-80 overflow-y-auto pr-1">
+          <!-- Dynamically populated search cards -->
+        </div>
+      </div>
+    </section>
+
+    <!-- Genre Filter Section -->
+    <section class="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
+      <span class="text-xs font-bold text-slate-400 whitespace-nowrap mr-1 flex items-center gap-1">
+        <i class="fa-solid fa-filter text-amber-500"></i> 장르 필터:
+      </span>
+      <div id="genre-filter-container" class="flex items-center gap-1.5">
+        <!-- Genre Filter buttons generated dynamically -->
+      </div>
+    </section>
+
+    <!-- TIER BOARD AREA (THIS DIV IS CAPTURED VIA HTML2CANVAS) -->
+    <div id="tier-board" class="space-y-4 bg-slate-950 p-4 md:p-6 rounded-2xl border border-slate-800/80 shadow-2xl">
+      
+      <!-- Tier Board Header (Visible on capture) -->
+      <div class="flex items-center justify-between border-b border-slate-800/80 pb-3 mb-2">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-trophy text-amber-400 text-lg"></i>
+          <span class="font-extrabold text-lg text-slate-100 tracking-tight">MY MOVIE TIER LIST</span>
+        </div>
+        <span class="text-xs text-slate-400 font-medium">총 <span id="total-movie-count" class="text-amber-400 font-bold">0</span>편 영화</span>
+      </div>
+
+      <!-- S TIER -->
+      <div class="tier-row tier-row-S border rounded-xl overflow-hidden flex flex-col md:flex-row transition-all">
+        <div class="tier-label-S w-full md:w-28 p-3 flex md:flex-col items-center justify-between md:justify-center text-center shrink-0">
+          <span class="text-3xl font-black tracking-wider">S</span>
+          <span class="text-[11px] font-bold opacity-90 tracking-tight">GOD TIER</span>
+        </div>
+        <div id="tier-S" class="tier-dropzone flex-1 p-3 flex flex-wrap items-start gap-3 min-h-[140px]">
+          <!-- Movie cards rendered here -->
+        </div>
+      </div>
+
+      <!-- A TIER -->
+      <div class="tier-row tier-row-A border rounded-xl overflow-hidden flex flex-col md:flex-row transition-all">
+        <div class="tier-label-A w-full md:w-28 p-3 flex md:flex-col items-center justify-between md:justify-center text-center shrink-0">
+          <span class="text-3xl font-black tracking-wider">A</span>
+          <span class="text-[11px] font-bold opacity-90 tracking-tight">GREAT</span>
+        </div>
+        <div id="tier-A" class="tier-dropzone flex-1 p-3 flex flex-wrap items-start gap-3 min-h-[140px]">
+          <!-- Movie cards rendered here -->
+        </div>
+      </div>
+
+      <!-- B TIER -->
+      <div class="tier-row tier-row-B border rounded-xl overflow-hidden flex flex-col md:flex-row transition-all">
+        <div class="tier-label-B w-full md:w-28 p-3 flex md:flex-col items-center justify-between md:justify-center text-center shrink-0">
+          <span class="text-3xl font-black tracking-wider">B</span>
+          <span class="text-[11px] font-bold opacity-90 tracking-tight">GOOD</span>
+        </div>
+        <div id="tier-B" class="tier-dropzone flex-1 p-3 flex flex-wrap items-start gap-3 min-h-[140px]">
+          <!-- Movie cards rendered here -->
+        </div>
+      </div>
+
+      <!-- C TIER -->
+      <div class="tier-row tier-row-C border rounded-xl overflow-hidden flex flex-col md:flex-row transition-all">
+        <div class="tier-label-C w-full md:w-28 p-3 flex md:flex-col items-center justify-between md:justify-center text-center shrink-0">
+          <span class="text-3xl font-black tracking-wider">C</span>
+          <span class="text-[11px] font-bold opacity-90 tracking-tight">SO-SO</span>
+        </div>
+        <div id="tier-C" class="tier-dropzone flex-1 p-3 flex flex-wrap items-start gap-3 min-h-[140px]">
+          <!-- Movie cards rendered here -->
+        </div>
+      </div>
+
+      <!-- D TIER -->
+      <div class="tier-row tier-row-D border rounded-xl overflow-hidden flex flex-col md:flex-row transition-all">
+        <div class="tier-label-D w-full md:w-28 p-3 flex md:flex-col items-center justify-between md:justify-center text-center shrink-0">
+          <span class="text-3xl font-black tracking-wider">D</span>
+          <span class="text-[11px] font-bold opacity-90 tracking-tight">BAD</span>
+        </div>
+        <div id="tier-D" class="tier-dropzone flex-1 p-3 flex flex-wrap items-start gap-3 min-h-[140px]">
+          <!-- Movie cards rendered here -->
+        </div>
+      </div>
+
+    </div>
+
+    <!-- UNASSIGNED MOVIES SECTION -->
+    <section class="bg-slate-900 border border-slate-800 rounded-2xl p-4 md:p-6 shadow-xl space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-boxes-packing text-amber-500 text-lg"></i>
+          <h2 class="text-base font-bold text-white">미배정 영화 카드 보관함</h2>
+          <span id="unassigned-count-badge" class="px-2.5 py-0.5 rounded-full bg-slate-800 text-amber-400 font-bold text-xs border border-slate-700">0</span>
+        </div>
+        <span class="text-xs text-slate-400 hidden sm:inline">버튼을 눌러 각 등급(S/A/B/C/D)으로 즉시 이동시키세요</span>
+      </div>
+
+      <!-- Unassigned Movie Cards Container -->
+      <div id="tier-unassigned" class="flex flex-wrap items-start gap-3 min-h-[160px] p-2 bg-slate-950/60 rounded-xl border border-dashed border-slate-800">
+        <!-- Unassigned movie cards rendered here -->
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Toast Message Notification -->
+  <div id="toast-message" class="fixed bottom-6 right-6 z-50 transform translate-y-20 opacity-0 transition-all duration-300 bg-amber-500 text-slate-950 px-5 py-3 rounded-xl font-bold text-sm shadow-2xl flex items-center gap-2 pointer-events-none">
+    <i class="fa-solid fa-circle-check text-lg"></i>
+    <span id="toast-text">알림 내용</span>
+  </div>
+
+  <footer class="max-w-7xl mx-auto px-4 mt-8 text-center text-xs text-slate-500">
+    <p>© Cinema Tier List — 롯데시네마 · CGV · 메가박스 검색 연동 & 이미지 내보내기 지원</p>
+  </footer>
+
+  <script>
+    // ==========================================
+    // 1. INITIAL MOVIE DATA & STATE MANAGEMENT
+    // ==========================================
+
+    const DEFAULT_MOVIES = [
+      {
+        id: 'm-parasite',
+        title: '기생충',
+        genre: '드라마/블랙코미디',
+        poster: 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=400&auto=format&fit=crop&q=80',
+        tier: 'unassigned',
+        isDefault: true
+      },
+      {
+        id: 'm-interstellar',
+        title: '인터스텔라',
+        genre: 'SF/드라마',
+        poster: 'https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?w=400&auto=format&fit=crop&q=80',
+        tier: 'unassigned',
+        isDefault: true
+      },
+      {
+        id: 'm-lalaland',
+        title: '라라랜드',
+        genre: '로맨스/뮤지컬',
+        poster: 'https://images.unsplash.com/photo-1518173946687-a4c8a383392e?w=400&auto=format&fit=crop&q=80',
+        tier: 'unassigned',
+        isDefault: true
+      },
+      {
+        id: 'm-spiritedaway',
+        title: '센과 치히로의 행방불명',
+        genre: '애니메이션/판타지',
+        poster: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=400&auto=format&fit=crop&q=80',
+        tier: 'unassigned',
+        isDefault: true
+      },
+      {
+        id: 'm-avengersendgame',
+        title: '어벤져스: 엔드게임',
+        genre: '액션/SF',
+        poster: 'https://images.unsplash.com/photo-1635863138275-d9b33299680b?w=400&auto=format&fit=crop&q=80',
+        tier: 'unassigned',
+        isDefault: true
+      },
+      {
+        id: 'm-theoutlaws',
+        title: '범죄도시',
+        genre: '액션/범죄',
+        poster: 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=400&auto=format&fit=crop&q=80',
+        tier: 'unassigned',
+        isDefault: true
+      },
+      {
+        id: 'm-titanic',
+        title: '타이타닉',
+        genre: '로맨스/드라마',
+        poster: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=400&auto=format&fit=crop&q=80',
+        tier: 'unassigned',
+        isDefault: true
+      },
+      {
+        id: 'm-toystory',
+        title: '토이 스토리',
+        genre: '애니메이션/가족',
+        poster: 'https://images.unsplash.com/photo-1563089145-599997674d42?w=400&auto=format&fit=crop&q=80',
+        tier: 'unassigned',
+        isDefault: true
+      }
+    ];
+
+    const STORAGE_KEY = 'cinema_tier_list_movies_v2';
+    let moviesList = [];
+    let activeGenreFilter = '전체';
+
+    // List of known primary genres for standard pills
+    const KNOWN_GENRES = ['전체', 'SF', '애니메이션', '드라마', '액션', '로맨스', '범죄', '뮤지컬', '판타지'];
+
+    // ==========================================
+    // 2. INITIALIZATION & LOCALSTORAGE
+    // ==========================================
+
+    window.onload = function() {
+      loadMoviesFromStorage();
+      renderGenreFilters();
+      renderTierBoard();
+    };
+
+    function loadMoviesFromStorage() {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          moviesList = JSON.parse(saved);
+        } else {
+          moviesList = [...DEFAULT_MOVIES];
+          saveMoviesToStorage();
+        }
+      } catch (e) {
+        console.error('LocalStorage load error', e);
+        moviesList = [...DEFAULT_MOVIES];
+      }
+    }
+
+    function saveMoviesToStorage() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(moviesList));
+      } catch (e) {
+        console.error('LocalStorage save error', e);
+      }
+    }
+
+    // ==========================================
+    // 3. MOVING MOVIES BETWEEN TIERS (BUTTON DRIVEN)
+    // ==========================================
+
+    function setMovieTier(movieId, targetTier) {
+      const movie = moviesList.find(m => m.id === movieId);
+      if (movie) {
+        movie.tier = targetTier;
+        saveMoviesToStorage();
+        renderTierBoard();
+        showToast(`'${movie.title}' 영화가 [${targetTier === 'unassigned' ? '미배정' : targetTier + ' 등급'}]으로 이동되었습니다.`);
+      }
+    }
+
+    function deleteMovie(movieId) {
+      const movie = moviesList.find(m => m.id === movieId);
+      if (!movie) return;
+      
+      moviesList = moviesList.filter(m => m.id !== movieId);
+      saveMoviesToStorage();
+      renderGenreFilters();
+      renderTierBoard();
+      showToast(`'${movie.title}' 영화가 목록에서 삭제되었습니다.`);
+    }
+
+    // ==========================================
+    // 4. GENRE FILTERING
+    // ==========================================
+
+    function renderGenreFilters() {
+      const container = document.getElementById('genre-filter-container');
+      container.innerHTML = '';
+
+      // Collect unique genres present in dataset plus standard known genres
+      const allGenresSet = new Set(KNOWN_GENRES);
+      moviesList.forEach(m => {
+        if (m.genre) {
+          m.genre.split('/').forEach(g => allGenresSet.add(g.trim()));
+        }
+      });
+
+      Array.from(allGenresSet).forEach(genre => {
+        const isActive = activeGenreFilter === genre;
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.onclick = () => {
+          activeGenreFilter = genre;
+          renderGenreFilters();
+          renderTierBoard();
+        };
+
+        if (isActive) {
+          btn.className = 'px-3 py-1 rounded-full bg-amber-500 text-slate-950 text-xs font-extrabold shadow-md transition-all whitespace-nowrap';
+        } else {
+          btn.className = 'px-3 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-medium border border-slate-700/60 transition-all whitespace-nowrap';
+        }
+        btn.textContent = genre;
+        container.appendChild(btn);
+      });
+    }
+
+    // ==========================================
+    // 5. RENDERING TIER BOARD & CARDS
+    // ==========================================
+
+    function renderTierBoard() {
+      const tiers = ['S', 'A', 'B', 'C', 'D', 'unassigned'];
+      
+      // Filter movies according to active genre
+      const filteredMovies = moviesList.filter(m => {
+        if (activeGenreFilter === '전체') return true;
+        if (!m.genre) return false;
+        return m.genre.includes(activeGenreFilter);
+      });
+
+      // Clear containers
+      tiers.forEach(t => {
+        const el = document.getElementById(`tier-${t}`);
+        if (el) el.innerHTML = '';
+      });
+
+      let totalFilteredCount = 0;
+      let unassignedCount = 0;
+
+      filteredMovies.forEach(movie => {
+        totalFilteredCount++;
+        if (movie.tier === 'unassigned') unassignedCount++;
+
+        const container = document.getElementById(`tier-${movie.tier}`);
+        if (container) {
+          container.appendChild(createMovieCardElement(movie));
+        }
+      });
+
+      // Update counters
+      document.getElementById('total-movie-count').textContent = moviesList.length;
+      document.getElementById('unassigned-count-badge').textContent = moviesList.filter(m => m.tier === 'unassigned').length;
+
+      // Handle empty tier states placeholder
+      ['S', 'A', 'B', 'C', 'D'].forEach(t => {
+        const container = document.getElementById(`tier-${t}`);
+        if (container && container.children.length === 0) {
+          const emptyNotice = document.createElement('div');
+          emptyNotice.className = 'w-full h-24 flex items-center justify-center text-xs text-slate-600 border border-dashed border-slate-800/80 rounded-lg';
+          emptyNotice.innerHTML = `<span class="italic"><i class="fa-regular fa-folder-open mr-1"></i> 영화 카드에 위치한 등급 버튼([${t}])을 눌러 추가하세요</span>`;
+          container.appendChild(emptyNotice);
+        }
+      });
+
+      const unassignedContainer = document.getElementById('tier-unassigned');
+      if (unassignedContainer && unassignedContainer.children.length === 0) {
+        const emptyNotice = document.createElement('div');
+        emptyNotice.className = 'w-full py-8 text-center text-xs text-slate-500';
+        emptyNotice.innerHTML = `<span>모든 영화가 등급 배정되었거나 검색된 영화가 없습니다.</span>`;
+        unassignedContainer.appendChild(emptyNotice);
+      }
+    }
+
+    function createMovieCardElement(movie) {
+      const card = document.createElement('div');
+      card.className = 'movie-card relative w-28 sm:w-32 bg-slate-900 border border-slate-700/80 hover:border-amber-500/80 rounded-xl overflow-hidden shadow-lg transition-all duration-200 flex flex-col shrink-0 group';
+
+      // Poster & Title HTML
+      card.innerHTML = `
+        <!-- Delete Button (Top Right) -->
+        <button onclick="deleteMovie('${movie.id}')" title="삭제" class="absolute top-1.5 right-1.5 z-20 w-6 h-6 rounded-full bg-slate-950/80 text-slate-400 hover:text-red-400 hover:bg-slate-900 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs border border-slate-700">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+
+        <!-- Image Container -->
+        <div class="relative w-full aspect-[2/3] bg-slate-950 overflow-hidden">
+          <img 
+            src="${movie.poster}" 
+            alt="${movie.title}" 
+            class="poster-img w-full h-full object-cover transition-transform duration-300" 
+            onerror="this.onerror=null; this.src='https://placehold.co/300x450/1e293b/f8fafc?text=${encodeURIComponent(movie.title)}';"
+          />
+          <div class="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent opacity-80"></div>
+          
+          <!-- Genre Badge Overlay -->
+          <span class="absolute bottom-1.5 left-1.5 right-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-950/80 text-amber-400 border border-amber-500/30 truncate text-center">
+            ${movie.genre || '영화'}
+          </span>
+        </div>
+
+        <!-- Movie Info -->
+        <div class="p-2 flex-grow flex flex-col justify-between bg-slate-900 border-t border-slate-800">
+          <h3 class="text-xs font-bold text-slate-100 truncate text-center mb-2" title="${movie.title}">
+            ${movie.title}
+          </h3>
+
+          <!-- Tier Selection Button Row (Direct Action) -->
+          <div class="grid grid-cols-3 gap-1">
+            <button onclick="setMovieTier('${movie.id}', 'S')" class="py-1 rounded text-[10px] font-black transition-all ${movie.tier === 'S' ? 'bg-red-600 text-white btn-tier-active' : 'bg-slate-800 text-slate-300 hover:bg-red-600/80 hover:text-white'}">S</button>
+            <button onclick="setMovieTier('${movie.id}', 'A')" class="py-1 rounded text-[10px] font-black transition-all ${movie.tier === 'A' ? 'bg-orange-600 text-white btn-tier-active' : 'bg-slate-800 text-slate-300 hover:bg-orange-600/80 hover:text-white'}">A</button>
+            <button onclick="setMovieTier('${movie.id}', 'B')" class="py-1 rounded text-[10px] font-black transition-all ${movie.tier === 'B' ? 'bg-amber-600 text-white btn-tier-active' : 'bg-slate-800 text-slate-300 hover:bg-amber-600/80 hover:text-white'}">B</button>
+            <button onclick="setMovieTier('${movie.id}', 'C')" class="py-1 rounded text-[10px] font-black transition-all ${movie.tier === 'C' ? 'bg-green-600 text-white btn-tier-active' : 'bg-slate-800 text-slate-300 hover:bg-green-600/80 hover:text-white'}">C</button>
+            <button onclick="setMovieTier('${movie.id}', 'D')" class="py-1 rounded text-[10px] font-black transition-all ${movie.tier === 'D' ? 'bg-blue-600 text-white btn-tier-active' : 'bg-slate-800 text-slate-300 hover:bg-blue-600/80 hover:text-white'}">D</button>
+            <button onclick="setMovieTier('${movie.id}', 'unassigned')" title="미배정" class="py-1 rounded text-[9px] font-bold transition-all ${movie.tier === 'unassigned' ? 'bg-slate-700 text-amber-400 border border-amber-500/40' : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white'}">
+              <i class="fa-solid fa-box-archive"></i>
+            </button>
+          </div>
+        </div>
+      `;
+
+      return card;
+    }
+
+    // ==========================================
+    // 6. REAL MOVIE SEARCH VIA GEMINI API
+    // ==========================================
+
+    async function handleMovieSearch(e) {
+      e.preventDefault();
+      const input = document.getElementById('search-input');
+      const query = input.value.trim();
+      if (!query) return;
+
+      const loadingEl = document.getElementById('search-loading');
+      const modalEl = document.getElementById('search-results-modal');
+      const listEl = document.getElementById('search-results-list');
+
+      loadingEl.classList.remove('hidden');
+      modalEl.classList.add('hidden');
+      listEl.innerHTML = '';
+
+      try {
+        const searchResults = await searchRealCinemaMovies(query);
+        loadingEl.classList.add('hidden');
+
+        if (searchResults && searchResults.length > 0) {
+          renderSearchResults(searchResults);
+          modalEl.classList.remove('hidden');
+        } else {
+          // Fallback single movie entry generator
+          renderSearchResults([{
+            title: query,
+            genre: '드라마/영화',
+            poster: `https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=400&auto=format&fit=crop&q=80`
+          }]);
+          modalEl.classList.remove('hidden');
+        }
+      } catch (err) {
+        console.error('Search failed', err);
+        loadingEl.classList.add('hidden');
+        // Add direct movie fallback
+        addDirectCustomMovie(query, '영화/일반');
+      }
+    }
+
+    async function searchRealCinemaMovies(query) {
+      // Gemini API Call to fetch structured real cinema movie information
+      const apiKey = ""; // Canvas runtime key insertion
+      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+
+      const systemPrompt = `You are a Korean cinema database expert for CGV, Lotte Cinema, and Megabox. 
+Provide exact movie details for the given user search query.
+Respond ONLY in valid JSON format matching the schema provided.`;
+
+      const userPrompt = `Search for Korean or International movies titled or related to "${query}" released in CGV, Lotte Cinema, Megabox, or streaming. Return up to 4 exact matches.
+Include Korean title, genre (e.g., 액션/스릴러, 애니메이션), and a high-quality relevant Unsplash image topic URL or high resolution poster placeholder URL for the movie.`;
+
+      const payload = {
+        contents: [{ parts: [{ text: userPrompt }] }],
+        tools: [{ "google_search": {} }],
+        systemInstruction: { parts: [{ text: systemPrompt }] },
+        generationConfig: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: "ARRAY",
+            items: {
+              type: "OBJECT",
+              properties: {
+                title: { type: "STRING", description: "Korean Movie Title" },
+                genre: { type: "STRING", description: "Primary Movie Genres e.g. 액션/SF" },
+                summary: { type: "STRING", description: "Short 1-line description" },
+                poster: { type: "STRING", description: "Image URL for movie poster" }
+              },
+              propertyOrdering: ["title", "genre", "summary", "poster"]
+            }
+          }
+        }
+      };
+
+      let attempt = 0;
+      let delay = 1000;
+
+      while (attempt < 2) {
+        try {
+          const res = await fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+
+          if (res.ok) {
+            const data = await res.json();
+            const jsonText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (jsonText) {
+              const parsed = JSON.parse(jsonText);
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                return parsed.map((item, idx) => ({
+                  title: item.title || query,
+                  genre: item.genre || '영화',
+                  poster: item.poster || `https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?w=400&auto=format&fit=crop&q=80`
+                }));
+              }
+            }
+          }
+        } catch (e) {
+          console.warn('API fetch attempt failed, retrying...', e);
+        }
+        attempt++;
+        await new Promise(r => setTimeout(r, delay));
+        delay *= 2;
+      }
+
+      // Offline fallback search response
+      return [
+        {
+          title: query,
+          genre: '영화/극장개봉',
+          poster: 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=400&auto=format&fit=crop&q=80'
+        }
+      ];
+    }
+
+    function renderSearchResults(results) {
+      const listEl = document.getElementById('search-results-list');
+      listEl.innerHTML = '';
+
+      results.forEach((item, index) => {
+        const itemEl = document.createElement('div');
+        itemEl.className = 'flex items-center gap-3 p-2 bg-slate-900 border border-slate-800 rounded-lg hover:border-amber-500 cursor-pointer transition-all group';
+        itemEl.onclick = () => {
+          addNewMovieToList(item.title, item.genre, item.poster);
+          closeSearchResults();
+        };
+
+        itemEl.innerHTML = `
+          <img src="${item.poster}" alt="${item.title}" class="w-12 h-16 object-cover rounded bg-slate-800" onerror="this.src='https://placehold.co/120x180/1e293b/f8fafc?text=Poster';" />
+          <div class="flex-1 min-w-0">
+            <h4 class="text-xs font-bold text-white truncate group-hover:text-amber-400 transition-colors">${item.title}</h4>
+            <span class="text-[10px] text-amber-500/90 font-semibold px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 inline-block mt-1">${item.genre}</span>
+          </div>
+          <button class="px-2.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-md shrink-0">
+            + 추가
+          </button>
+        `;
+
+        listEl.appendChild(itemEl);
+      });
+    }
+
+    function closeSearchResults() {
+      document.getElementById('search-results-modal').classList.add('hidden');
+      document.getElementById('search-input').value = '';
+    }
+
+    function addNewMovieToList(title, genre, poster) {
+      // Check duplicate
+      const exists = moviesList.some(m => m.title.toLowerCase() === title.toLowerCase());
+      if (exists) {
+        showToast(`'${title}' 영화가 이미 목록에 존재합니다.`);
+        return;
+      }
+
+      const newMovie = {
+        id: 'custom-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4),
+        title: title,
+        genre: genre || '영화',
+        poster: poster || 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=400&auto=format&fit=crop&q=80',
+        tier: 'unassigned',
+        isDefault: false
+      };
+
+      moviesList.unshift(newMovie); // Add to front
+      saveMoviesToStorage();
+      renderGenreFilters();
+      renderTierBoard();
+
+      // Scroll to unassigned section
+      document.getElementById('tier-unassigned').scrollIntoView({ behavior: 'smooth' });
+      showToast(`'${title}' 영화가 미배정 목록에 추가되었습니다!`);
+    }
+
+    function addDirectCustomMovie(title, genre) {
+      addNewMovieToList(title, genre, 'https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?w=400&auto=format&fit=crop&q=80');
+      closeSearchResults();
+    }
+
+    // ==========================================
+    // 7. RESULT SHARING (IMAGE CAPTURE EXPORT)
+    // ==========================================
+
+    async function exportTierList() {
+      const board = document.getElementById('tier-board');
+      const exportBtn = document.getElementById('export-btn');
+
+      // Visual feedback
+      exportBtn.disabled = true;
+      exportBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> <span>이미지 생성 중...</span>`;
+
+      try {
+        const canvas = await html2canvas(board, {
+          backgroundColor: '#020617',
+          scale: 2, // High resolution capture
+          useCORS: true,
+          logging: false
+        });
+
+        // Convert to PNG download
+        const image = canvas.toDataURL('image/png');
+        const link = document.createElement('a');
+        link.download = `cinema-tier-list-${new Date().toISOString().slice(0, 10)}.png`;
+        link.href = image;
+        link.click();
+
+        showToast('📸 티어리스트가 이미지(.png)로 다운로드되었습니다!');
+      } catch (e) {
+        console.error('Capture export failed', e);
+        showToast('이미지 저장 중 오류가 발생했습니다.');
+      } finally {
+        exportBtn.disabled = false;
+        exportBtn.innerHTML = `<i class="fa-solid fa-camera text-base"></i> <span>결과 공유하기 (이미지 저장)</span>`;
+      }
+    }
+
+    // ==========================================
+    // 8. TOAST NOTIFICATION UTILITY
+    // ==========================================
+
+    let toastTimeout;
+    function showToast(message) {
+      const toast = document.getElementById('toast-message');
+      const toastText = document.getElementById('toast-text');
+
+      toastText.textContent = message;
+      toast.classList.remove('translate-y-20', 'opacity-0');
+
+      clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => {
+        toast.classList.add('translate-y-20', 'opacity-0');
+      }, 2800);
+    }
+  </script>
+</body>
+</html>

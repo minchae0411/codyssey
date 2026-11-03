@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>영화 티어리스트</title>
+<style>
+:root{--bg:#eceff5;--surface:#fff;--soft:#f3f5fa;--text:#14213d;--muted:#5d6783;--line:#d9deea;--accent:#2b3a8c;--on-accent:#fff;
+--S:#d62f4b;--A:#e2620f;--B:#b98a00;--C:#2c9a4a;--D:#2272c4;--U:#6a7390;
+--font:system-ui,-apple-system,'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR','Segoe UI',sans-serif;--disp:var(--font);
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#10121e;--surface:#1a1d2e;--soft:#232740;--text:#e8ebf7;--muted:#9aa3c2;--line:#2f3453;--accent:#8e9cff;--on-accent:#10121e;--S:#ef5a74;--A:#f58a41;--B:#d9a91a;--C:#4cbf6b;--D:#4f9be0;--U:#7e88a8;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#10121e;--surface:#1a1d2e;--soft:#232740;--text:#e8ebf7;--muted:#9aa3c2;--line:#2f3453;--accent:#8e9cff;--on-accent:#10121e;--S:#ef5a74;--A:#f58a41;--B:#d9a91a;--C:#4cbf6b;--D:#4f9be0;--U:#7e88a8;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font);line-height:1.5}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.wrap{max-width:1040px;margin:0 auto;padding:20px 16px 56px}
+header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;margin-bottom:16px}
+h1{font-family:var(--disp);font-weight:900;font-size:clamp(26px,5vw,38px);margin:0;letter-spacing:.01em}
+.hr{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.who{color:var(--muted);font-size:14px}.who b{color:var(--text)}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:8px 14px;font-weight:500}
+.btn:hover{background:var(--soft)}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.btn.pri:hover{filter:brightness(1.1)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 18px}
+.chip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:4px 12px;font-size:13px}
+.chip.on{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.row{display:grid;grid-template-columns:72px 1fr;margin-bottom:10px;background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-height:96px}
+.lab{display:flex;align-items:center;justify-content:center;background:var(--c);color:#fff;font-family:var(--disp);font-weight:900;font-size:40px;text-align:center;line-height:1.1}
+.lab.u{font-family:var(--font);font-weight:700;font-size:14px}
+.cards{display:flex;flex-wrap:wrap;gap:10px;padding:10px;align-content:flex-start}
+.empty{color:var(--muted);font-size:14px;padding:6px 4px;align-self:center}
+.card{width:168px;background:var(--soft);border-radius:8px;overflow:hidden;display:flex;flex-direction:column}
+.pos{aspect-ratio:2/3;width:100%;background:var(--line);display:flex}
+.pos img{width:100%;height:100%;object-fit:cover;display:block}
+.ph{width:100%;display:flex;align-items:center;justify-content:center;text-align:center;padding:12px;color:#fff;font-weight:700;font-size:17px;word-break:keep-all}
+.info{padding:8px}
+.t{font-weight:700;font-size:14px;word-break:keep-all;margin:0 0 4px}
+.gs{display:flex;flex-wrap:wrap;gap:4px;min-height:20px;margin-bottom:8px}
+.g{font-size:11px;background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:0 6px;color:var(--muted)}
+.tbs{display:grid;grid-template-columns:repeat(5,1fr) 1.5fr;gap:3px;margin-bottom:6px}
+.tb{border:1px solid var(--line);background:var(--surface);border-radius:5px;padding:3px 0;font-size:12px;font-weight:700}
+.tb:hover{border-color:var(--c,var(--muted))}
+.tb.on{background:var(--c,var(--U));border-color:var(--c,var(--U));color:#fff}
+.ac{display:flex;gap:6px}
+.ac button{flex:1;border:0;background:transparent;color:var(--muted);font-size:12px;padding:2px;text-decoration:underline}
+.ac .danger{color:var(--S);font-weight:700}
+.login{max-width:420px;margin:12vh auto 0;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:28px 24px}
+.login h1{margin-bottom:6px}.login p{color:var(--muted);font-size:14px;margin:0 0 16px}
+.fld{width:100%;border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:10px 12px}
+.login .btn{width:100%;margin-top:10px;padding:10px}
+.recent{margin-top:18px;font-size:13px;color:var(--muted)}.recent .chips{margin:8px 0 0}
+.ov{position:fixed;inset:0;background:rgba(10,12,24,.55);display:none;align-items:flex-start;justify-content:center;overflow:auto;padding:max(16px,env(safe-area-inset-top,0px)) 16px max(16px,env(safe-area-inset-bottom,0px));z-index:20}
+.ov.open{display:flex}
+.modal{background:var(--surface);border-radius:12px;width:100%;max-width:480px;padding:20px;margin:auto}
+.modal h2{margin:0 0 14px;font-size:20px}
+.modal label,.lbl{display:block;font-weight:700;font-size:14px;margin:14px 0 6px}
+.mrow{display:flex;gap:8px}.mrow .fld{flex:1}
+.pbox{display:flex;gap:14px;align-items:flex-start}
+.pp{width:96px;aspect-ratio:2/3;border:1px dashed var(--line);border-radius:6px;background:var(--soft);display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:12px;overflow:hidden;flex:none}
+.pp img{width:100%;height:100%;object-fit:cover}
+.hint{font-size:13px;color:var(--muted);margin:0 0 8px}
+.mact{display:flex;justify-content:flex-end;gap:8px;margin-top:20px}
+#toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translate(-50%,20px);background:var(--text);color:var(--bg);padding:10px 16px;border-radius:8px;font-size:14px;opacity:0;pointer-events:none;transition:.2s;z-index:30;max-width:90vw}
+#toast.show{opacity:1;transform:translate(-50%,0)}
+@media (max-width:520px){.row{grid-template-columns:52px 1fr}.lab{font-size:30px}.card{width:calc(50% - 5px)}.cards{padding:8px}}
+@media (prefers-reduced-motion:reduce){#toast{transition:none}}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+<div class="ov" id="ov"><div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="mh"></div></div>
+<div id="toast" role="status"></div>
+<script>
+(()=>{
+const TIERS=['S','A','B','C','D'];
+const BASE=['드라마','SF','로맨스','애니메이션','액션','범죄','코미디','스릴러','공포','판타지','모험','미스터리','전쟁','가족','뮤지컬','다큐멘터리'];
+const DEFAULTS=[['기생충','드라마'],['인터스텔라','SF'],['라라랜드','로맨스'],['센과 치히로의 행방불명','애니메이션'],['어벤져스: 엔드게임','액션'],['범죄도시','범죄'],['타이타닉','로맨스'],['토이 스토리','애니메이션']];
+const mem={};
+const sget=k=>{try{return localStorage.getItem(k)}catch(e){return mem[k]??null}};
+const sset=(k,v)=>{try{localStorage.setItem(k,v);return true}catch(e){mem[k]=v;return false}};
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let uid=null,data=null,filter='',editId=null,draft=null,confirmDel=null,tt;
+const nid=()=>Math.random().toString(36).slice(2,9);
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('show'),2800)}
+function users(){try{const u=JSON.parse(sget('tl:users')||'[]');return Array.isArray(u)?u:[]}catch(e){return[]}}
+function save(){if(!sset('tl:data:'+uid,JSON.stringify(data)))toast('이 브라우저에 저장하지 못했어요. 저장 공간을 확인해 주세요.')}
+function login(id){
+  id=String(id||'').trim().slice(0,20);
+  if(!id){toast('아이디를 입력해 주세요.');return}
+  let d=null;try{d=JSON.parse(sget('tl:data:'+id)||'null')}catch(e){}
+  if(!d||!Array.isArray(d.movies)){d={movies:DEFAULTS.map(([t,g])=>({id:nid(),title:t,genres:[g],tier:null,poster:''})),extra:[]}}
+  if(!Array.isArray(d.extra))d.extra=[];
+  uid=id;data=d;filter='';confirmDel=null;
+  sset('tl:users',JSON.stringify([id,...users().filter(u=>u!==id)].slice(0,8)));
+  sset('tl:last',id);save();render();
+}
+function switchId(){uid=null;data=null;render()}
+function logout(){uid=null;data=null;sset('tl:last','');render()}
+const genres=()=>[...new Set([...BASE,...data.extra])];
+function card(m){
+  const hue=[...m.title].reduce((a,c)=>a+c.charCodeAt(0),0)%360;
+  const img=m.poster&&m.poster.startsWith('data:image/')?`<img src="${m.poster}" alt="${esc(m.title)} 포스터">`:`<div class="ph" style="background:hsl(${hue} 38% 34%)">${esc(m.title)}</div>`;
+  const tb=[...TIERS,null].map(t=>`<button class="tb${m.tier===t?' on':''}" ${t?`style="--c:var(--${t})"`:''} data-act="tier" data-id="${m.id}" data-t="${t||''}" aria-pressed="${m.tier===t}" aria-label="${t?t+' 등급으로 이동':'미배정으로 이동'}">${t||'해제'}</button>`).join('');
+  const del=confirmDel===m.id?`<button class="danger" data-act="del" data-id="${m.id}">정말 삭제</button>`:`<button data-act="del" data-id="${m.id}">삭제</button>`;
+  return `<div class="card"><div class="pos">${img}</div><div class="info"><p class="t">${esc(m.title)}</p><div class="gs">${m.genres.map(g=>`<span class="g">${esc(g)}</span>`).join('')}</div><div class="tbs">${tb}</div><div class="ac"><button data-act="edit" data-id="${m.id}">수정</button>${del}</div></div></div>`;
+}
+function render(){
+  const app=$('#app');
+  if(!uid){
+    const r=users();
+    app.innerHTML=`<div class="login"><h1>영화 티어리스트</h1><p>아이디를 입력하면 내 목록이 따로 저장돼요. 비밀번호는 없어요.</p><input class="fld" id="uid" maxlength="20" placeholder="아이디 (20자 이내)" autocomplete="off" aria-label="아이디"><button class="btn pri" data-act="login">시작하기</button>${r.length?`<div class="recent">이 브라우저에서 쓴 아이디<div class="chips">${r.map(u=>`<button class="chip" data-act="login" data-id="${esc(u)}">${esc(u)}</button>`).join('')}</div></div>`:''}<p class="recent">목록은 지금 쓰는 브라우저에 저장돼요. 다른 기기나 브라우저에서는 보이지 않아요.</p></div>`;
+    return;
+  }
+  const vis=m=>!filter||m.genres.includes(filter);
+  const used=genres().filter(g=>data.movies.some(m=>m.genres.includes(g)));
+  if(filter&&!used.includes(filter))filter='';
+  const chips=`<div class="chips" role="group" aria-label="장르 필터"><button class="chip${filter?'':' on'}" data-act="filter" data-g="">전체</button>${used.map(g=>`<button class="chip${filter===g?' on':''}" data-act="filter" data-g="${esc(g)}">${esc(g)}</button>`).join('')}</div>`;
+  const rows=[...TIERS,null].map(t=>{
+    const ms=data.movies.filter(m=>m.tier===t&&vis(m));
+    const body=ms.length?ms.map(card).join(''):`<span class="empty">${filter?'이 장르의 영화가 없어요.':(t?'아래 카드의 버튼으로 영화를 옮겨 보세요.':'모든 영화가 등급을 받았어요.')}</span>`;
+    return `<section class="row" aria-label="${t||'미배정'}"><div class="lab${t?'':' u'}" style="--c:var(--${t||'U'})">${t||'미배정'}</div><div class="cards">${body}</div></section>`;
+  }).join('');
+  app.innerHTML=`<header><h1>영화 티어리스트</h1><div class="hr"><span class="who">아이디 <b>${esc(uid)}</b></span><button class="btn pri" data-act="add">영화 추가</button><button class="btn" data-act="switch">아이디 바꾸기</button><button class="btn" data-act="logout">로그아웃</button></div></header>${chips}${rows}`;
+}
+function chipsHTML(){return genres().map(g=>`<button type="button" class="chip${draft.genres.includes(g)?' on':''}" data-act="mg" data-g="${esc(g)}" aria-pressed="${draft.genres.includes(g)}">${esc(g)}</button>`).join('')}
+function paintPoster(){$('#pp').innerHTML=draft.poster?`<img src="${draft.poster}" alt="">`:'포스터 없음'}
+function openModal(id){
+  editId=id;const m=id?data.movies.find(x=>x.id===id):null;
+  draft={title:m?m.title:'',genres:m?[...m.genres]:[],poster:m?m.poster:''};
+  $('#modal').innerHTML=`<h2 id="mh">${m?'영화 수정':'영화 추가'}</h2><label for="mt">제목</label><input class="fld" id="mt" maxlength="60" value="${esc(draft.title)}" placeholder="영화 제목"><span class="lbl">장르 (여러 개 선택 가능)</span><div class="chips" id="gc" style="margin:0">${chipsHTML()}</div><div class="mrow" style="margin-top:8px"><input class="fld" id="mg" maxlength="12" placeholder="새 장르 이름" aria-label="새 장르 이름"><button type="button" class="btn" data-act="addg">장르 추가</button></div><span class="lbl">포스터</span><div class="pbox"><div class="pp" id="pp"></div><div><p class="hint">웹에서 포스터 이미지를 복사한 뒤 이 창에서 붙여넣기(Ctrl+V)하거나, 이미지 파일을 선택해 주세요.</p><input type="file" id="pf" accept="image/*" aria-label="포스터 파일 선택"><div style="margin-top:8px"><button type="button" class="btn" data-act="clrp">포스터 지우기</button></div></div></div><div class="mact"><button type="button" class="btn" data-act="close">취소</button><button type="button" class="btn pri" data-act="savem">${m?'수정 저장':'추가'}</button></div>`;
+  paintPoster();$('#ov').classList.add('open');$('#mt').focus();
+  $('#pf').addEventListener('change',e=>{setPoster(e.target.files[0]);e.target.value=''});
+}
+function closeModal(){$('#ov').classList.remove('open');draft=null}
+function setPoster(f){
+  if(!f||!f.type.startsWith('image/')){toast('이미지 파일만 추가할 수 있어요.');return}
+  const fr=new FileReader();
+  fr.onload=()=>{const img=new Image();
+    img.onload=()=>{const s=Math.min(1,240/img.width,360/img.height),c=document.createElement('canvas');c.width=Math.max(1,Math.round(img.width*s));c.height=Math.max(1,Math.round(img.height*s));c.getContext('2d').drawImage(img,0,0,c.width,c.height);if(draft){draft.poster=c.toDataURL('image/jpeg',.82);paintPoster()}};
+    img.onerror=()=>toast('이미지를 불러오지 못했어요.');img.src=fr.result};
+  fr.onerror=()=>toast('이미지를 읽지 못했어요.');fr.readAsDataURL(f);
+}
+function saveMovie(){
+  const title=$('#mt').value.trim();
+  if(!title){toast('영화 제목을 입력해 주세요.');$('#mt').focus();return}
+  if(editId){const m=data.movies.find(x=>x.id===editId);if(m){m.title=title;m.genres=draft.genres;m.poster=draft.poster}}
+  else data.movies.push({id:nid(),title,genres:draft.genres,tier:null,poster:draft.poster});
+  save();closeModal();render();
+}
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-act]');if(!b)return;
+  const a=b.dataset.act,id=b.dataset.id;
+  if(a!=='del'&&confirmDel){confirmDel=null;if(uid&&a!=='tier'&&a!=='edit')render()}
+  if(a==='login')login(id!==undefined?id:$('#uid').value);
+  else if(a==='switch')switchId();
+  else if(a==='logout')logout();
+  else if(a==='filter'){filter=b.dataset.g;render()}
+  else if(a==='tier'){const m=data.movies.find(x=>x.id===id);if(m){m.tier=b.dataset.t||null;save();render()}}
+  else if(a==='del'){if(confirmDel===id){data.movies=data.movies.filter(x=>x.id!==id);confirmDel=null;save()}else confirmDel=id;render()}
+  else if(a==='add')openModal(null);
+  else if(a==='edit')openModal(id);
+  else if(a==='close')closeModal();
+  else if(a==='savem')saveMovie();
+  else if(a==='mg'){const g=b.dataset.g,i=draft.genres.indexOf(g);i<0?draft.genres.push(g):draft.genres.splice(i,1);b.classList.toggle('on');b.setAttribute('aria-pressed',i<0)}
+  else if(a==='addg'){const el=$('#mg'),g=el.value.trim();if(!g)return;if(!genres().includes(g)){data.extra.push(g);save()}if(!draft.genres.includes(g))draft.genres.push(g);el.value='';$('#gc').innerHTML=chipsHTML()}
+  else if(a==='clrp'){draft.poster='';paintPoster()}
+});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'&&draft)closeModal();
+  if(e.key==='Enter'){
+    if(e.target.id==='uid')login(e.target.value);
+    else if(e.target.id==='mg'){e.preventDefault();document.querySelector('[data-act="addg"]').click()}
+    else if(e.target.id==='mt')saveMovie();
+  }
+});
+document.addEventListener('paste',e=>{
+  if(!draft)return;
+  for(const it of (e.clipboardData&&e.clipboardData.items)||[]){
+    if(it.type.startsWith('image/')){e.preventDefault();setPoster(it.getAsFile());return}
+  }
+});
+const last=sget('tl:last');
+if(last)login(last);else render();
+})();
+</script>
+</body>
+</html>
