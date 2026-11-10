@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>포토핀</title>
+<style>
+:root{--ink:#1b2433;--sub:#5d6a80;--line:#d5dce8;--bg:#e4e9f1;--pin:#e5195a;--bar:#fff}
+@media (prefers-color-scheme:dark){:root{--ink:#e8edf6;--sub:#9aa7bd;--line:#33405a;--bg:#161c29;--bar:#1f2736}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;min-height:100vh}
+.bar{position:sticky;top:0;z-index:5;display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;padding:10px 16px;background:var(--bar);border-bottom:1px solid var(--line)}
+h1{margin:0;font-size:20px;letter-spacing:-.02em}
+.grp{display:flex;gap:6px;flex-wrap:wrap}
+button{font:inherit;color:var(--ink);background:transparent;border:1px solid var(--line);border-radius:8px;padding:7px 11px;cursor:pointer}
+button:hover{border-color:var(--sub)}
+button:focus-visible{outline:2px solid var(--pin);outline-offset:2px}
+button:disabled{opacity:.35;cursor:default}
+.pen{display:flex;flex-direction:column;align-items:center;gap:5px;min-width:64px;font-size:13px}
+.pen i{display:block;width:34px;border-radius:3px}
+.pen[aria-pressed=true]{background:var(--ink);color:var(--bar);border-color:var(--ink)}
+.primary{background:var(--pin);color:#fff;border-color:var(--pin)}
+.sp{flex:1}
+main{padding:14px 12px 28px}
+#stage{position:relative;margin:0 auto;box-shadow:0 8px 30px rgba(0,0,0,.25);border-radius:4px;overflow:visible;line-height:0}
+#cv{display:block;width:100%;height:auto;touch-action:none;cursor:crosshair;border-radius:4px;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+#pins{position:absolute;inset:0;pointer-events:none}
+.pin{position:absolute;width:0;height:0;padding:0;border:0;pointer-events:auto;cursor:pointer}
+.pin::before{content:"";position:absolute;width:28px;height:28px;left:-14px;top:-33.8px;background:var(--pin);border:2px solid #fff;border-radius:50% 50% 50% 0;transform:rotate(-45deg);box-shadow:0 2px 6px rgba(0,0,0,.4);box-sizing:border-box}
+.pin::after{content:"";position:absolute;width:8px;height:8px;left:-4px;top:-24px;background:#fff;border-radius:50%}
+.pin:hover::before{filter:brightness(1.12)}
+#ring{position:absolute;width:56px;height:56px;margin:-28px 0 0 -28px;border-radius:50%;border:3px solid var(--pin);pointer-events:none;opacity:0;transform:scale(1.5)}
+#ring.on{opacity:1;transform:scale(.4);transition:transform 1s linear}
+#hint{text-align:center;color:var(--sub);font-size:14px;margin:14px 0 0}
+dialog{border:0;border-radius:14px;padding:20px;width:min(92vw,560px);background:var(--bar);color:var(--ink)}
+dialog::backdrop{background:rgba(10,15,25,.55)}
+dialog h2{margin:0 0 12px;font-size:18px}
+textarea{width:100%;font:inherit;padding:10px;border:1px solid var(--line);border-radius:8px;background:transparent;color:var(--ink);resize:vertical}
+.row{display:flex;gap:8px;margin-top:14px;align-items:center}
+#list{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;max-height:60vh;overflow:auto;padding:2px}
+.card{position:relative;border:1px solid var(--line);border-radius:10px;overflow:hidden;cursor:pointer;background:transparent;padding:0;text-align:left}
+.card img{display:block;width:100%;aspect-ratio:4/3;object-fit:cover}
+.card span{display:block;padding:7px 9px;font-size:13px;color:var(--sub)}
+.card .x{position:absolute;top:6px;right:6px;padding:3px 8px;font-size:12px;background:var(--bar)}
+#empty{color:var(--sub);margin:8px 0}
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:var(--bar);padding:10px 16px;border-radius:999px;font-size:14px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:20}
+#toast.on{opacity:1}
+</style>
+</head>
+<body>
+<header class="bar">
+  <h1>포토핀</h1>
+  <div class="grp" id="pens">
+    <button class="pen" data-pen="sharp" aria-pressed="false"><i style="height:2px;background:#222"></i>샤프</button>
+    <button class="pen" data-pen="ball" aria-pressed="true"><i style="height:4px;background:#1747c9"></i>볼펜</button>
+    <button class="pen" data-pen="hi" aria-pressed="false"><i style="height:12px;background:#ffe34d;opacity:.7"></i>형광펜</button>
+    <button class="pen" data-pen="cray" aria-pressed="false"><i style="height:8px;background:repeating-linear-gradient(90deg,#e4572e 0 3px,#f08a6c 3px 5px)"></i>크레파스</button>
+  </div>
+  <div class="grp">
+    <button id="undo" title="그리기 취소 (Ctrl+Z)">되돌리기</button>
+    <button id="redo" title="다시 실행 (Ctrl+Y)">다시 실행</button>
+  </div>
+  <span class="sp"></span>
+  <div class="grp">
+    <button id="open">사진 열기</button>
+    <button id="save" class="primary">사진 저장하기</button>
+    <button id="gallery">저장된 사진 목록</button>
+  </div>
+  <input type="file" id="file" accept="image/*" hidden>
+</header>
+<main>
+  <div id="stage"><canvas id="cv"></canvas><div id="pins"></div><div id="ring"></div></div>
+  <p id="hint">펜으로 그리기 · 빈 곳을 1초 꾹 누르면 메모 핀 꽂기 · 핀을 누르면 메모 보기</p>
+</main>
+
+<dialog id="memoDlg">
+  <h2 id="memoTitle">메모 작성</h2>
+  <textarea id="memoTxt" rows="5" maxlength="500" placeholder="이 위치에 남길 메모를 적어 주세요"></textarea>
+  <div class="row">
+    <button id="memoDel" hidden>핀 삭제</button><span class="sp"></span>
+    <button id="memoCancel">닫기</button>
+    <button id="memoOk" class="primary">메모 저장</button>
+  </div>
+</dialog>
+<dialog id="galDlg">
+  <h2>저장된 사진 목록</h2>
+  <p id="empty" hidden>아직 저장한 사진이 없어요. [사진 저장하기]를 눌러 보세요.</p>
+  <div id="list"></div>
+  <div class="row"><span class="sp"></span><button id="galClose">닫기</button></div>
+</dialog>
+<div id="toast" role="status"></div>
+
+<script>
+const $=s=>document.querySelector(s);
+const cv=$('#cv'),ctx=cv.getContext('2d'),stage=$('#stage'),pinsEl=$('#pins'),ring=$('#ring');
+const KEY='photopin_v1';
+const PENS={
+  sharp:{w:1.8,c:'#222222',a:1},
+  ball:{w:3.4,c:'#1747c9',a:.92},
+  hi:{w:22,c:'#ffe34d',a:.4},
+  cray:{w:9,c:'#e4572e',a:.8}
+};
+const layer=document.createElement('canvas'),lctx=layer.getContext('2d');
+const img=new Image();
+let S=null,pen='ball',cur=null,press=null,editPin=null,newPos=null;
+
+const h=n=>{n=Math.sin(n*127.1)*43758.5453;return n-Math.floor(n)};
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.remove('on'),2200)}
+
+/* ---------- 기본 샘플 이미지 ---------- */
+function sample(){
+  const c=document.createElement('canvas');c.width=1200;c.height=800;const g=c.getContext('2d');
+  g.fillStyle='#b8c4d4';g.fillRect(0,0,1200,800);
+  g.save();g.translate(600,400);g.rotate(-.012);g.translate(-600,-400);
+  g.shadowColor='rgba(0,0,0,.3)';g.shadowBlur=30;g.shadowOffsetY=10;
+  g.fillStyle='#fbfbf7';g.fillRect(70,40,1060,720);g.shadowColor='transparent';
+  g.strokeStyle='#d6e0ec';g.lineWidth=1;
+  for(let y=100;y<760;y+=40){g.beginPath();g.moveTo(70,y);g.lineTo(1130,y);g.stroke()}
+  g.strokeStyle='#f0a0a8';g.beginPath();g.moveTo(150,40);g.lineTo(150,760);g.stroke();
+  g.fillStyle='#1c2a44';g.font='bold 54px sans-serif';g.fillText('포토핀 사용법',190,100);
+  g.font='28px sans-serif';g.fillStyle='#35425a';
+  g.fillText('① 펜을 고르고 글자에 밑줄·동그라미를 그려 보세요.',190,220);
+  g.fillText('② 사진 위 아무 곳이나 1초 꾹 누르면 메모 핀이 꽂혀요.',190,340);
+  g.fillText('③ [사진 저장하기]를 누르면 새로고침 후에도 남아요.',190,460);
+  g.strokeStyle='#1c2a44';g.lineWidth=3;g.fillStyle='#1c2a44';g.font='bold 26px sans-serif';
+  [[190,'강의 사진'],[470,'필기 + 메모 핀'],[790,'복습 노트']].forEach(([x,t],i)=>{
+    g.strokeRect(x,540,i==1?240:200,70);g.fillText(t,x+16,584);
+  });
+  [[400,470],[720,790]].forEach(([a,b])=>{g.beginPath();g.moveTo(a+10,575);g.lineTo(b-10,575);g.stroke();
+    g.beginPath();g.moveTo(b-24,563);g.lineTo(b-10,575);g.lineTo(b-24,587);g.stroke()});
+  g.fillStyle='#7a8699';g.font='24px sans-serif';
+  g.fillText('예시 사진입니다. 내 강의·여행 사진은 [사진 열기]로 불러오세요.',190,720);
+  g.restore();
+  return c.toDataURL('image/jpeg',.82);
+}
+
+/* ---------- 그리기 ---------- */
+function drawStroke(g,s){
+  const P=PENS[s.t],p=s.p;g.save();
+  g.lineCap=s.t==='hi'?'square':'round';g.lineJoin='round';g.strokeStyle=P.c;
+  if(s.t==='cray'){
+    for(let i=0;i<p.length;i++){
+      const a=p[Math.max(0,i-1)],b=p[i];
+      for(let k=0;k<3;k++){
+        const r=s.s+i*7+k*13;
+        g.globalAlpha=P.a*(.35+.5*h(r));g.lineWidth=P.w*(.3+.4*h(r+1));
+        const dx=(h(r+2)-.5)*P.w*.7,dy=(h(r+3)-.5)*P.w*.7;
+        g.beginPath();g.moveTo(a[0]+dx,a[1]+dy);g.lineTo(b[0]+dx+.01,b[1]+dy);g.stroke();
+      }
+    }
+  }else{
+    g.globalAlpha=P.a;g.lineWidth=P.w;g.beginPath();g.moveTo(p[0][0],p[0][1]);
+    for(let i=1;i<p.length;i++)g.lineTo(p[i][0],p[i][1]);
+    if(p.length===1)g.lineTo(p[0][0]+.01,p[0][1]);
+    g.stroke();
+  }
+  g.restore();
+}
+function draw(){
+  ctx.clearRect(0,0,cv.width,cv.height);ctx.drawImage(img,0,0,cv.width,cv.height);
+  ctx.drawImage(layer,0,0);if(cur)drawStroke(ctx,cur);
+}
+function renderLayer(){lctx.clearRect(0,0,layer.width,layer.height);S.strokes.forEach(s=>drawStroke(lctx,s))}
+function fit(){
+  if(!S)return;
+  const maxH=innerHeight-170,availW=document.body.clientWidth-24;
+  stage.style.width=Math.max(240,Math.min(S.w,maxH*S.w/S.h,availW))+'px';
+}
+function btns(){$('#undo').disabled=!S.strokes.length;$('#redo').disabled=!S.redo.length}
+
+/* ---------- 작업 불러오기 ---------- */
+function loadWork(w){
+  S=w;S.redo=[];
+  img.onload=()=>{
+    cv.width=layer.width=S.w;cv.height=layer.height=S.h;
+    fit();renderLayer();draw();renderPins();btns();
+  };
+  img.src=S.src;
+}
+function renderPins(){
+  pinsEl.innerHTML='';
+  S.pins.forEach(p=>{
+    const b=document.createElement('button');b.className='pin';
+    b.style.left=p.x*100+'%';b.style.top=p.y*100+'%';
+    b.title=p.t;b.setAttribute('aria-label','메모 핀: '+p.t);
+    b.addEventListener('pointerdown',e=>e.stopPropagation());
+    b.addEventListener('click',()=>openMemo(null,p));
+    pinsEl.appendChild(b);
+  });
+}
+
+/* ---------- 포인터 / 1초 길게 누르기 ---------- */
+const pt=e=>{const r=cv.getBoundingClientRect();return[(e.clientX-r.left)*cv.width/r.width,(e.clientY-r.top)*cv.height/r.height]};
+cv.addEventListener('contextmenu',e=>e.preventDefault());
+cv.addEventListener('pointerdown',e=>{
+  if(e.button>0)return;
+  cv.setPointerCapture(e.pointerId);
+  const p=pt(e);cur={t:pen,p:[p],s:Math.random()*1000|0};
+  ring.style.left=p[0]/cv.width*100+'%';ring.style.top=p[1]/cv.height*100+'%';
+  ring.classList.remove('on');void ring.offsetWidth;ring.classList.add('on');
+  press={x:e.clientX,y:e.clientY,timer:setTimeout(fire,1000)};
+});
+cv.addEventListener('pointermove',e=>{
+  if(!cur)return;
+  if(press&&Math.hypot(e.clientX-press.x,e.clientY-press.y)>8){clearTimeout(press.timer);press=null;ring.classList.remove('on')}
+  if(!press){cur.p.push(pt(e));draw()}
+});
+function end(){
+  if(press){clearTimeout(press.timer);press=null;ring.classList.remove('on')}
+  if(cur){S.strokes.push(cur);S.redo=[];drawStroke(lctx,cur);cur=null;draw();btns()}
+}
+cv.addEventListener('pointerup',end);
+cv.addEventListener('pointercancel',end);
+function fire(){
+  const p=cur.p[0];cur=null;press=null;ring.classList.remove('on');draw();
+  navigator.vibrate&&navigator.vibrate(30);
+  openMemo({x:p[0]/cv.width,y:p[1]/cv.height},null);
+}
+
+/* ---------- 메모 ---------- */
+function openMemo(pos,pin){
+  newPos=pos;editPin=pin;
+  $('#memoTitle').textContent=pin?'메모 보기·수정':'메모 작성';
+  $('#memoTxt').value=pin?pin.t:'';
+  $('#memoDel').hidden=!pin;
+  $('#memoDlg').showModal();$('#memoTxt').focus();
+}
+$('#memoOk').onclick=()=>{
+  const t=$('#memoTxt').value.trim();
+  if(!t){$('#memoTxt').focus();return}
+  if(editPin)editPin.t=t;else S.pins.push({id:Date.now(),x:newPos.x,y:newPos.y,t});
+  $('#memoDlg').close();renderPins();
+};
+$('#memoDel').onclick=()=>{S.pins=S.pins.filter(p=>p!==editPin);$('#memoDlg').close();renderPins()};
+$('#memoCancel').onclick=()=>$('#memoDlg').close();
+
+/* ---------- 도구 ---------- */
+document.querySelectorAll('.pen').forEach(b=>b.onclick=()=>{
+  pen=b.dataset.pen;document.querySelectorAll('.pen').forEach(x=>x.setAttribute('aria-pressed',x===b));
+});
+function undo(){if(S.strokes.length){S.redo.push(S.strokes.pop());renderLayer();draw();btns()}}
+function redo(){if(S.redo.length){S.strokes.push(S.redo.pop());renderLayer();draw();btns()}}
+$('#undo').onclick=undo;$('#redo').onclick=redo;
+addEventListener('keydown',e=>{
+  if(document.querySelector('dialog[open]'))return;
+  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();e.shiftKey?redo():undo()}
+  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='y'){e.preventDefault();redo()}
+});
+addEventListener('resize',fit);
+
+$('#open').onclick=()=>$('#file').click();
+$('#file').onchange=e=>{
+  const f=e.target.files[0];if(!f)return;
+  const im=new Image(),u=URL.createObjectURL(f);
+  im.onload=()=>{
+    const k=Math.min(1,1400/Math.max(im.width,im.height)),c=document.createElement('canvas');
+    c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);
+    c.getContext('2d').drawImage(im,0,0,c.width,c.height);URL.revokeObjectURL(u);
+    loadWork({id:null,src:c.toDataURL('image/jpeg',.82),w:c.width,h:c.height,strokes:[],pins:[]});
+  };
+  im.onerror=()=>toast('이미지를 열 수 없어요. 다른 파일을 선택해 주세요.');
+  im.src=u;e.target.value='';
+};
+
+/* ---------- 저장 / 목록 (localStorage) ---------- */
+function read(){try{return JSON.parse(localStorage.getItem(KEY))||[]}catch(e){return[]}}
+function thumb(){
+  const c=document.createElement('canvas'),k=320/S.w;c.width=320;c.height=Math.round(S.h*k);
+  const g=c.getContext('2d');g.drawImage(img,0,0,c.width,c.height);g.drawImage(layer,0,0,c.width,c.height);
+  return c.toDataURL('image/jpeg',.7);
+}
+$('#save').onclick=()=>{
+  const list=read(),id=S.id||Date.now();
+  const item={id,src:S.src,w:S.w,h:S.h,strokes:S.strokes,pins:S.pins,thumb:thumb(),ts:Date.now()};
+  const i=list.findIndex(x=>x.id===id);
+  if(i>=0)list[i]=item;else list.unshift(item);
+  try{localStorage.setItem(KEY,JSON.stringify(list));S.id=id;toast('저장했어요. 목록에서 다시 열 수 있어요.')}
+  catch(e){toast('저장 공간이 부족해요. 목록에서 오래된 사진을 삭제해 주세요.')}
+};
+function showList(){
+  const list=read(),box=$('#list');box.innerHTML='';$('#empty').hidden=list.length>0;
+  list.forEach(it=>{
+    const c=document.createElement('div');c.className='card';c.tabIndex=0;c.setAttribute('role','button');
+    const d=new Date(it.ts).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
+    c.innerHTML='<img alt="저장된 사진"><span></span><button class="x">삭제</button>';
+    c.querySelector('img').src=it.thumb;c.querySelector('span').textContent=d+' · 핀 '+it.pins.length+'개';
+    const go=()=>{loadWork(JSON.parse(JSON.stringify(it)));$('#galDlg').close()};
+    c.onclick=go;c.onkeydown=e=>{if(e.key==='Enter')go()};
+    c.querySelector('.x').onclick=e=>{
+      e.stopPropagation();
+      if(!confirm('이 작업을 삭제할까요? 되돌릴 수 없어요.'))return;
+      const next=read().filter(x=>x.id!==it.id);localStorage.setItem(KEY,JSON.stringify(next));
+      if(S.id===it.id)S.id=null;showList();
+    };
+    box.appendChild(c);
+  });
+}
+$('#gallery').onclick=()=>{showList();$('#galDlg').showModal()};
+$('#galClose').onclick=()=>$('#galDlg').close();
+
+/* ---------- 시작 ---------- */
+loadWork({id:null,src:sample(),w:1200,h:800,strokes:[],pins:[]});
+</script>
+</body>
+</html>
