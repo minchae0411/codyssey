@@ -1,0 +1,1214 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>포토핀 (PhotoPin) - 사진 위 메모 & 필기 웹앱</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            500: '#0284c7',
+                            600: '#0369a1',
+                            700: '#075985',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom scrollbars & canvas utilities */
+        body {
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .canvas-container {
+            touch-action: none;
+        }
+        /* Circular Progress Ring Animation for 0.5s Long Press */
+        @keyframes fillProgress {
+            from {
+                stroke-dashoffset: 125.66;
+            }
+            to {
+                stroke-dashoffset: 0;
+            }
+        }
+        .animate-progress-ring {
+            stroke-dasharray: 125.66;
+            stroke-dashoffset: 125.66;
+            animation: fillProgress 500ms linear forwards;
+        }
+        /* Bounce pulse for pins */
+        @keyframes pinBounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-6px); }
+        }
+        .pin-animated {
+            animation: pinBounce 2s infinite ease-in-out;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen flex flex-col font-sans antialiased selection:bg-sky-200">
+
+    <!-- Top Header -->
+    <header class="bg-slate-900 text-white shadow-md z-30 sticky top-0">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+            <!-- App Logo & Title Input -->
+            <div class="flex items-center space-x-3">
+                <div class="bg-gradient-to-tr from-sky-500 to-indigo-600 p-2 rounded-xl shadow-inner flex items-center justify-center">
+                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="font-extrabold text-lg tracking-tight text-white flex items-center gap-1.5">
+                        포토핀 <span class="text-xs bg-sky-600/80 px-2 py-0.5 rounded-full font-normal text-sky-100">PhotoPin</span>
+                    </h1>
+                    <input type="text" id="project-title" value="강의 교안 메모 01" 
+                        class="bg-transparent text-xs text-slate-300 font-medium focus:text-white focus:bg-slate-800/80 px-1.5 py-0.5 rounded border border-transparent hover:border-slate-700 focus:outline-none transition w-44 sm:w-60" 
+                        title="프로젝트 제목 편집">
+                </div>
+            </div>
+
+            <!-- Top Header Action Buttons -->
+            <div class="flex items-center space-x-2">
+                <!-- Custom Image Upload -->
+                <label class="cursor-pointer bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white px-3 py-1.5 rounded-lg text-xs font-medium flex items-center space-x-1.5 border border-slate-700 transition shadow-sm">
+                    <svg class="w-4 h-4 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                    </svg>
+                    <span class="hidden sm:inline">사진 불러오기</span>
+                    <span class="sm:hidden">사진</span>
+                    <input type="file" id="image-upload" accept="image/*" class="hidden">
+                </label>
+
+                <!-- Gallery Modal Button -->
+                <button id="btn-open-gallery" class="bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white px-3 py-1.5 rounded-lg text-xs font-medium flex items-center space-x-1.5 border border-slate-700 transition shadow-sm relative">
+                    <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+                    </svg>
+                    <span>저장 목록</span>
+                    <span id="saved-count-badge" class="bg-amber-500 text-slate-9 font-bold px-1.5 py-0.2 text-[10px] rounded-full">0</span>
+                </button>
+
+                <!-- Save Project Button -->
+                <button id="btn-save-project" class="bg-sky-600 hover:bg-sky-500 text-white px-3.5 py-1.5 rounded-lg text-xs font-bold flex items-center space-x-1.5 shadow-md hover:shadow-sky-500/20 active:scale-95 transition">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/>
+                    </svg>
+                    <span>사진 저장하기</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Workspace Toolbar -->
+    <section class="bg-white border-b border-slate-200 shadow-sm z-20 py-2 px-4 sticky top-[57px]">
+        <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3 text-xs">
+            
+            <!-- Drawing Tools Selection -->
+            <div class="flex items-center space-x-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
+                <button data-tool="sharp" class="tool-btn active bg-white text-slate-900 font-semibold shadow-sm px-2.5 py-1.5 rounded-lg flex items-center space-x-1.5 transition">
+                    <span class="text-slate-500">✏️</span>
+                    <span>샤프</span>
+                </button>
+                <button data-tool="ballpoint" class="tool-btn text-slate-600 hover:text-slate-900 px-2.5 py-1.5 rounded-lg flex items-center space-x-1.5 transition">
+                    <span class="text-blue-500">🖊️</span>
+                    <span>볼펜</span>
+                </button>
+                <button data-tool="highlighter" class="tool-btn text-slate-600 hover:text-slate-900 px-2.5 py-1.5 rounded-lg flex items-center space-x-1.5 transition">
+                    <span class="text-yellow-500">🖍️</span>
+                    <span>형광펜</span>
+                </button>
+                <button data-tool="crayon" class="tool-btn text-slate-600 hover:text-slate-900 px-2.5 py-1.5 rounded-lg flex items-center space-x-1.5 transition">
+                    <span class="text-orange-500">🎨</span>
+                    <span>크레파스</span>
+                </button>
+            </div>
+
+            <!-- Color Palette & Brush Settings -->
+            <div class="flex items-center space-x-3 overflow-x-auto py-1">
+                <!-- Color Presets -->
+                <div class="flex items-center space-x-1.5">
+                    <button class="color-preset w-6 h-6 rounded-full border-2 border-slate-900 bg-slate-900 ring-2 ring-transparent ring-offset-1" data-color="#0f172a" title="검정"></button>
+                    <button class="color-preset w-6 h-6 rounded-full border border-slate-300 bg-red-500 hover:opacity-90" data-color="#ef4444" title="빨강"></button>
+                    <button class="color-preset w-6 h-6 rounded-full border border-slate-300 bg-blue-600 hover:opacity-90" data-color="#2563eb" title="파랑"></button>
+                    <button class="color-preset w-6 h-6 rounded-full border border-slate-300 bg-amber-400 hover:opacity-90" data-color="#fbbf24" title="노랑"></button>
+                    <button class="color-preset w-6 h-6 rounded-full border border-slate-300 bg-emerald-500 hover:opacity-90" data-color="#10b981" title="초록"></button>
+                    <button class="color-preset w-6 h-6 rounded-full border border-slate-300 bg-purple-600 hover:opacity-90" data-color="#9333ea" title="보라"></button>
+                    
+                    <!-- Native Color Picker -->
+                    <div class="relative flex items-center ml-1">
+                        <input type="color" id="custom-color" value="#2563eb" class="w-6 h-6 rounded-full cursor-pointer border border-slate-300 p-0 bg-transparent">
+                    </div>
+                </div>
+
+                <div class="h-5 w-[1px] bg-slate-200"></div>
+
+                <!-- Size Slider & Preview -->
+                <div class="flex items-center space-x-2">
+                    <span class="text-slate-500 font-medium text-[11px]">두께</span>
+                    <input type="range" id="brush-size" min="1" max="35" value="6" class="w-20 accent-sky-600 cursor-pointer">
+                    <div class="w-5 flex justify-center items-center">
+                        <span id="brush-size-val" class="font-bold text-slate-700 text-xs">6</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Canvas Action Controls (Undo, Redo, Clear) -->
+            <div class="flex items-center space-x-1.5">
+                <button id="btn-undo" class="p-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition" title="실행 취소 (Undo)">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/>
+                    </svg>
+                </button>
+                <button id="btn-redo" class="p-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition" title="다시 실행 (Redo)">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 10H11a8 8 0 00-8 8v2m18-10l-6 6m6-6l-6-6"/>
+                    </svg>
+                </button>
+                <button id="btn-clear" class="px-2.5 py-1 text-red-600 hover:bg-red-50 font-medium rounded-lg border border-red-200 transition text-[11px] flex items-center space-x-1" title="필기 내용 초기화">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                    </svg>
+                    <span>지우기</span>
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Guide Alert Banner -->
+    <div class="bg-sky-50 border-b border-sky-100 px-4 py-1.5 text-center text-xs text-sky-800 flex items-center justify-center space-x-1.5">
+        <svg class="w-4 h-4 text-sky-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <span><strong>사용 팁:</strong> 사진 위 원하는 장소를 <strong>0.5초 동안 꾹 누르면</strong> 원형 로딩바가 채워지며 메모 핀을 추가할 수 있습니다!</span>
+    </div>
+
+    <!-- Main Canvas Content Area -->
+    <main class="flex-1 flex justify-center items-center p-3 sm:p-5 overflow-hidden relative">
+        <div id="canvas-wrapper" class="canvas-container relative bg-white shadow-xl rounded-2xl overflow-hidden border border-slate-200 transition-all flex items-center justify-center" style="max-width: 100%; max-height: calc(100vh - 150px);">
+            
+            <!-- Background Image Canvas Layer -->
+            <canvas id="bg-canvas" class="block absolute top-0 left-0 w-full h-full z-0 pointer-events-none object-contain"></canvas>
+            
+            <!-- Drawing Strokes Canvas Layer -->
+            <canvas id="draw-canvas" class="block w-full h-full relative z-10 cursor-crosshair object-contain"></canvas>
+
+            <!-- Pins Container (DOM Layer positioned over Canvas) -->
+            <div id="pins-overlay" class="absolute inset-0 z-20 pointer-events-none"></div>
+
+            <!-- Long-press Ripple Container -->
+            <div id="ripple-overlay" class="absolute inset-0 z-30 pointer-events-none"></div>
+        </div>
+    </main>
+
+    <!-- Toast Message Container -->
+    <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <!-- MODAL 1: Add Memo Pin Popup -->
+    <div id="modal-memo" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all border border-slate-100">
+            <div class="bg-gradient-to-r from-sky-600 to-indigo-600 px-5 py-4 text-white flex justify-between items-center">
+                <div class="flex items-center space-x-2">
+                    <span class="text-xl">📍</span>
+                    <h3 class="font-bold text-base">새 메모 핀 작성</h3>
+                </div>
+                <button id="btn-close-memo-modal" class="text-sky-100 hover:text-white p-1 rounded-lg">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="p-5 space-y-4">
+                <div>
+                    <label for="memo-text" class="block text-xs font-semibold text-slate-700 mb-1.5">메모 내용</label>
+                    <textarea id="memo-text" rows="4" placeholder="강의 핵심 내용, 나만의 노트, 당시의 기억을 적어보세요..." 
+                        class="w-full text-xs sm:text-sm p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-500 focus:border-sky-500 focus:outline-none resize-none text-slate-800 placeholder-slate-400"></textarea>
+                </div>
+
+                <!-- Color Option for Pin -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1.5">핀 색상 선택</label>
+                    <div class="flex items-center space-x-3" id="pin-color-options">
+                        <label class="cursor-pointer">
+                            <input type="radio" name="pin-color" value="#ef4444" checked class="peer hidden">
+                            <span class="w-7 h-7 rounded-full bg-red-500 block peer-checked:ring-2 peer-checked:ring-offset-2 peer-checked:ring-red-500 shadow-sm transition"></span>
+                        </label>
+                        <label class="cursor-pointer">
+                            <input type="radio" name="pin-color" value="#3b82f6" class="peer hidden">
+                            <span class="w-7 h-7 rounded-full bg-blue-500 block peer-checked:ring-2 peer-checked:ring-offset-2 peer-checked:ring-blue-500 shadow-sm transition"></span>
+                        </label>
+                        <label class="cursor-pointer">
+                            <input type="radio" name="pin-color" value="#eab308" class="peer hidden">
+                            <span class="w-7 h-7 rounded-full bg-yellow-500 block peer-checked:ring-2 peer-checked:ring-offset-2 peer-checked:ring-yellow-500 shadow-sm transition"></span>
+                        </label>
+                        <label class="cursor-pointer">
+                            <input type="radio" name="pin-color" value="#10b981" class="peer hidden">
+                            <span class="w-7 h-7 rounded-full bg-emerald-500 block peer-checked:ring-2 peer-checked:ring-offset-2 peer-checked:ring-emerald-500 shadow-sm transition"></span>
+                        </label>
+                        <label class="cursor-pointer">
+                            <input type="radio" name="pin-color" value="#a855f7" class="peer hidden">
+                            <span class="w-7 h-7 rounded-full bg-purple-500 block peer-checked:ring-2 peer-checked:ring-offset-2 peer-checked:ring-purple-500 shadow-sm transition"></span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-slate-50 px-5 py-3 flex justify-end space-x-2 border-t border-slate-100">
+                <button id="btn-cancel-memo" class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-200 transition">취소</button>
+                <button id="btn-save-memo" class="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-sky-600 hover:bg-sky-500 shadow-md transition">메모 핀 고정하기</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 2: View / Edit Pin Memo -->
+    <div id="modal-view-pin" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all border border-slate-100">
+            <div class="px-5 py-4 flex justify-between items-center border-b border-slate-100">
+                <div class="flex items-center space-x-2">
+                    <span id="view-pin-badge" class="w-3 h-3 rounded-full bg-red-500 inline-block"></span>
+                    <h3 class="font-bold text-sm text-slate-800">고정된 메모 핀</h3>
+                </div>
+                <button id="btn-close-view-modal" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="p-5 space-y-3">
+                <div class="text-xs text-slate-400 flex items-center justify-between">
+                    <span>작성 시간: <span id="view-pin-date" class="text-slate-600 font-medium"></span></span>
+                </div>
+                <div id="view-pin-text" class="text-xs sm:text-sm text-slate-800 bg-slate-50 p-4 rounded-xl border border-slate-200 whitespace-pre-wrap leading-relaxed min-h-[90px]"></div>
+            </div>
+
+            <div class="bg-slate-50 px-5 py-3 flex justify-between items-center border-t border-slate-100">
+                <button id="btn-delete-pin" class="px-3.5 py-1.5 rounded-xl text-xs font-semibold text-red-600 hover:bg-red-50 border border-red-200 transition flex items-center space-x-1">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                    </svg>
+                    <span>핀 삭제</span>
+                </button>
+                <button id="btn-close-view-pin" class="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-slate-800 hover:bg-slate-700 shadow transition">확인</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 3: Saved Projects Gallery Modal -->
+    <div id="modal-gallery" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[85vh] border border-slate-100">
+            <div class="bg-slate-900 px-6 py-4 text-white flex justify-between items-center">
+                <div class="flex items-center space-x-2">
+                    <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+                    </svg>
+                    <h3 class="font-bold text-base">저장된 사진 & 메모 작업목록</h3>
+                </div>
+                <button id="btn-close-gallery-modal" class="text-slate-400 hover:text-white p-1 rounded-lg">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            
+            <!-- Gallery Content Body -->
+            <div class="p-6 overflow-y-auto flex-1 bg-slate-50">
+                <div id="gallery-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <!-- Project cards inserted dynamically -->
+                </div>
+                <!-- Empty State -->
+                <div id="gallery-empty-state" class="hidden text-center py-12 text-slate-400 space-y-3">
+                    <svg class="w-16 h-16 mx-auto text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                    </svg>
+                    <p class="text-sm font-medium">저장된 포토핀 작업 내역이 없습니다.</p>
+                    <p class="text-xs text-slate-400">사진 위에 필기와 메모 핀을 추가한 후 '사진 저장하기'를 눌러보세요.</p>
+                </div>
+            </div>
+
+            <div class="bg-white px-6 py-3 flex justify-end border-t border-slate-200">
+                <button id="btn-close-gallery" class="px-5 py-2 rounded-xl text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition">닫기</button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Application Logic Script -->
+    <script>
+        /**
+         * PhotoPin (포토핀) Main Application Logic
+         */
+        document.addEventListener('DOMContentLoaded', () => {
+            // State Storage
+            const state = {
+                currentProjectTitle: '강의 교안 메모 01',
+                activeTool: 'sharp', // 'sharp', 'ballpoint', 'highlighter', 'crayon'
+                color: '#0f172a',
+                brushSize: 6,
+                isDrawing: false,
+                lastX: 0,
+                lastY: 0,
+                pins: [], // [{ id, xPct, yPct, text, color, date }]
+                history: [], // Canvas ImageData history stack
+                historyIndex: -1,
+                maxHistory: 20,
+                bgImage: null, // HTMLImageElement if custom image loaded
+                activePinId: null,
+                
+                // Long press tracker
+                longPressTimer: null,
+                longPressStartPos: { x: 0, y: 0 },
+                pendingPinCoords: { xPct: 0, yPct: 0 }
+            };
+
+            // DOM Elements
+            const bgCanvas = document.getElementById('bg-canvas');
+            const bgCtx = bgCanvas.getContext('2d');
+            const drawCanvas = document.getElementById('draw-canvas');
+            const drawCtx = drawCanvas.getContext('2d');
+            const wrapper = document.getElementById('canvas-wrapper');
+            const pinsOverlay = document.getElementById('pins-overlay');
+            const rippleOverlay = document.getElementById('ripple-overlay');
+            const projectTitleInput = document.getElementById('project-title');
+            
+            // Tool Controls
+            const toolButtons = document.querySelectorAll('.tool-btn');
+            const colorPresets = document.querySelectorAll('.color-preset');
+            const customColorPicker = document.getElementById('custom-color');
+            const brushSizeInput = document.getElementById('brush-size');
+            const brushSizeVal = document.getElementById('brush-size-val');
+            
+            // Action Buttons
+            const btnUndo = document.getElementById('btn-undo');
+            const btnRedo = document.getElementById('btn-redo');
+            const btnClear = document.getElementById('btn-clear');
+            const imageUploadInput = document.getElementById('image-upload');
+            const btnSaveProject = document.getElementById('btn-save-project');
+            const btnOpenGallery = document.getElementById('btn-open-gallery');
+            const savedCountBadge = document.getElementById('saved-count-badge');
+
+            // Modals
+            const modalMemo = document.getElementById('modal-memo');
+            const memoText = document.getElementById('memo-text');
+            const btnSaveMemo = document.getElementById('btn-save-memo');
+            const btnCancelMemo = document.getElementById('btn-cancel-memo');
+            const btnCloseMemoModal = document.getElementById('btn-close-memo-modal');
+
+            const modalViewPin = document.getElementById('modal-view-pin');
+            const viewPinText = document.getElementById('view-pin-text');
+            const viewPinDate = document.getElementById('view-pin-date');
+            const viewPinBadge = document.getElementById('view-pin-badge');
+            const btnDeletePin = document.getElementById('btn-delete-pin');
+            const btnCloseViewModal = document.getElementById('btn-close-view-modal');
+            const btnCloseViewPin = document.getElementById('btn-close-view-pin');
+
+            const modalGallery = document.getElementById('modal-gallery');
+            const galleryGrid = document.getElementById('gallery-grid');
+            const galleryEmptyState = document.getElementById('gallery-empty-state');
+            const btnCloseGalleryModal = document.getElementById('btn-close-gallery-modal');
+            const btnCloseGallery = document.getElementById('btn-close-gallery');
+
+            /**
+             * Dynamic Canvas Resolution & Aspect Ratio Setup
+             */
+            function setCanvasResolution(width, height) {
+                const w = width || 1200;
+                const h = height || 800;
+
+                bgCanvas.width = w;
+                bgCanvas.height = h;
+                drawCanvas.width = w;
+                drawCanvas.height = h;
+
+                // Dynamically fit container to image aspect ratio without exceeding viewport
+                const aspectRatio = w / h;
+                wrapper.style.aspectRatio = `${w} / ${h}`;
+                wrapper.style.width = `min(100%, calc((100vh - 150px) * ${aspectRatio}))`;
+
+                applyToolStyle();
+            }
+
+            /**
+             * Initialize Canvas Size & Scale
+             */
+            function initCanvasDimensions() {
+                setCanvasResolution(1200, 800);
+                renderDefaultSampleImage();
+                saveHistoryState();
+                updateSavedBadgeCount();
+            }
+
+            /**
+             * Render Default Visual Sample Lecture Note onto Background Canvas
+             */
+            function renderDefaultSampleImage() {
+                const CANVAS_WIDTH = bgCanvas.width;
+                const CANVAS_HEIGHT = bgCanvas.height;
+
+                bgCtx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+                
+                if (state.bgImage) {
+                    // Draw user uploaded image scaled to fit original canvas ratio
+                    bgCtx.drawImage(state.bgImage, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+                    return;
+                }
+
+                // Default Design: Clean lecture slide presentation image
+                bgCtx.fillStyle = '#f8fafc';
+                bgCtx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+                bgCtx.strokeStyle = '#e2e8f0';
+                bgCtx.lineWidth = 1;
+                const gridSize = Math.floor(CANVAS_WIDTH / 30);
+                for (let x = 0; x < CANVAS_WIDTH; x += gridSize) {
+                    bgCtx.beginPath();
+                    bgCtx.moveTo(x, 0);
+                    bgCtx.lineTo(x, CANVAS_HEIGHT);
+                    bgCtx.stroke();
+                }
+                for (let y = 0; y < CANVAS_HEIGHT; y += gridSize) {
+                    bgCtx.beginPath();
+                    bgCtx.moveTo(0, y);
+                    bgCtx.lineTo(CANVAS_WIDTH, y);
+                    bgCtx.stroke();
+                }
+
+                // Header Banner
+                bgCtx.fillStyle = '#0f172a';
+                bgCtx.roundRect(40, 35, CANVAS_WIDTH - 80, 80, 14);
+                bgCtx.fill();
+
+                bgCtx.fillStyle = '#ffffff';
+                bgCtx.font = 'bold 26px system-ui, sans-serif';
+                bgCtx.fillText('📘 [강의 교안] 시각적 메모와 메모 핀 활용법', 65, 83);
+
+                // Body Slide Box
+                bgCtx.fillStyle = '#ffffff';
+                bgCtx.shadowColor = 'rgba(0,0,0,0.06)';
+                bgCtx.shadowBlur = 10;
+                bgCtx.roundRect(40, 140, CANVAS_WIDTH - 80, CANVAS_HEIGHT - 180, 16);
+                bgCtx.fill();
+                bgCtx.shadowColor = 'transparent';
+
+                // Slide Title
+                bgCtx.fillStyle = '#0284c7';
+                bgCtx.font = 'bold 22px system-ui, sans-serif';
+                bgCtx.fillText('Topic: 촬영 사진 위 직접 필기 & 메모 핀 연결 복습', 70, 195);
+
+                // Slide Diagram / Illustrations
+                const boxW = (CANVAS_WIDTH - 170) / 2;
+                const boxH = CANVAS_HEIGHT - 300;
+
+                bgCtx.fillStyle = '#f0f9ff';
+                bgCtx.strokeStyle = '#bae6fd';
+                bgCtx.lineWidth = 2;
+                bgCtx.roundRect(70, 230, boxW, boxH, 12);
+                bgCtx.fill();
+                bgCtx.stroke();
+
+                bgCtx.fillStyle = '#0369a1';
+                bgCtx.font = 'bold 18px system-ui, sans-serif';
+                bgCtx.fillText('💡 학습 효과 극대화 구조', 95, 275);
+                
+                bgCtx.fillStyle = '#334155';
+                bgCtx.font = '15px system-ui, sans-serif';
+                bgCtx.fillText('• 텍스트만 작성했을 때 구체적인 맥락 잊음 방지', 95, 325);
+                bgCtx.fillText('• 사진 클릭 장소와 메모 핀 결합으로 시각적 직관성', 95, 370);
+                bgCtx.fillText('• 4가지 펜 도구(샤프, 볼펜, 형광펜, 크레파스) 활용', 95, 415);
+                bgCtx.fillText('• 웹 브라우저 내장 Web Storage 안전 보존', 95, 460);
+
+                // Right Diagram Box
+                bgCtx.fillStyle = '#fefce8';
+                bgCtx.strokeStyle = '#fef08a';
+                bgCtx.roundRect(70 + boxW + 30, 230, boxW, boxH, 12);
+                bgCtx.fill();
+                bgCtx.stroke();
+
+                bgCtx.fillStyle = '#854d0e';
+                bgCtx.font = 'bold 18px system-ui, sans-serif';
+                bgCtx.fillText('📌 메모 핀 생성하는 방법', 70 + boxW + 55, 275);
+
+                bgCtx.fillStyle = '#475569';
+                bgCtx.font = '15px system-ui, sans-serif';
+                bgCtx.fillText('1. 사진 내 원하는 지점을 0.5초 동안 꾹 누르기', 70 + boxW + 55, 330);
+                bgCtx.fillText('2. 원형 로딩바 완료 후 팝업창에 메모 입력', 70 + boxW + 55, 385);
+                bgCtx.fillText('3. 등록된 메모 핀 클릭하여 언제든 다시 확인', 70 + boxW + 55, 440);
+
+                // Bottom Footer Note
+                bgCtx.fillStyle = '#94a3b8';
+                bgCtx.font = '14px system-ui, sans-serif';
+                bgCtx.fillText('* 상단 "사진 불러오기" 버튼을 누르면 본인 소장 강의 사진/교안을 업로드할 수 있습니다.', 70, CANVAS_HEIGHT - 65);
+
+                // Add 2 initial demonstration pins if pins list is empty
+                if (state.pins.length === 0) {
+                    state.pins = [
+                        {
+                            id: 'pin_demo_1',
+                            xPct: 24.5,
+                            yPct: 42.0,
+                            text: '강의 교안 핵심 포인트: 시각적 직관성을 갖춘 메모 작성!',
+                            color: '#ef4444',
+                            date: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                        },
+                        {
+                            id: 'pin_demo_2',
+                            xPct: 68.0,
+                            yPct: 53.5,
+                            text: '0.5초 누르면(Long-press) 원형 로딩바가 돌아가며 메모 핀이 생성됩니다.',
+                            color: '#3b82f6',
+                            date: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                        }
+                    ];
+                    renderPins();
+                }
+            }
+
+            /**
+             * Drawing Engine - Configure tool properties on Canvas Context
+             */
+            function applyToolStyle() {
+                const size = state.brushSize;
+                const color = state.color;
+
+                drawCtx.lineCap = 'round';
+                drawCtx.lineJoin = 'round';
+                drawCtx.globalCompositeOperation = 'source-over';
+
+                switch (state.activeTool) {
+                    case 'sharp': // Mechanical Pencil: thin, light opacity
+                        drawCtx.strokeStyle = color;
+                        drawCtx.lineWidth = Math.max(1, size * 0.4);
+                        drawCtx.globalAlpha = 0.5;
+                        break;
+                    case 'ballpoint': // Ballpoint Pen: solid crisp stroke
+                        drawCtx.strokeStyle = color;
+                        drawCtx.lineWidth = size;
+                        drawCtx.globalAlpha = 0.95;
+                        break;
+                    case 'highlighter': // Highlighter: thick semi-transparent multiply
+                        drawCtx.strokeStyle = color;
+                        drawCtx.lineWidth = size * 2.4;
+                        drawCtx.globalAlpha = 0.35;
+                        drawCtx.lineCap = 'square';
+                        drawCtx.globalCompositeOperation = 'multiply';
+                        break;
+                    case 'crayon': // Crayon: textured thick line segment
+                        drawCtx.strokeStyle = color;
+                        drawCtx.lineWidth = size * 1.5;
+                        drawCtx.globalAlpha = 0.85;
+                        break;
+                }
+            }
+
+            /**
+             * Crayon Custom Texture Stroke Rendering
+             */
+            function drawCrayonSegment(x1, y1, x2, y2) {
+                const dist = Math.hypot(x2 - x1, y2 - y1);
+                const steps = Math.max(1, Math.floor(dist / 2));
+                const radius = state.brushSize * 0.8;
+                
+                drawCtx.save();
+                drawCtx.fillStyle = state.color;
+
+                for (let i = 0; i < steps; i++) {
+                    const curX = x1 + (x2 - x1) * (i / steps);
+                    const curY = y1 + (y2 - y1) * (i / steps);
+
+                    for (let j = 0; j < Math.floor(state.brushSize * 1.2); j++) {
+                        const offsetX = (Math.random() - 0.5) * radius * 1.6;
+                        const offsetY = (Math.random() - 0.5) * radius * 1.6;
+                        drawCtx.globalAlpha = Math.random() * 0.4 + 0.2;
+                        drawCtx.fillRect(curX + offsetX, curY + offsetY, 1.8, 1.8);
+                    }
+                }
+                drawCtx.restore();
+            }
+
+            /**
+             * Map Pointer Screen Coordinates to Canvas Coordinates
+             */
+            function getCanvasCoordinates(e) {
+                const rect = drawCanvas.getBoundingClientRect();
+                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                
+                const scaleX = drawCanvas.width / rect.width;
+                const scaleY = drawCanvas.height / rect.height;
+
+                const screenX = clientX - rect.left;
+                const screenY = clientY - rect.top;
+
+                return {
+                    x: screenX * scaleX,
+                    y: screenY * scaleY,
+                    screenX: screenX,
+                    screenY: screenY,
+                    xPct: (screenX / rect.width) * 100,
+                    yPct: (screenY / rect.height) * 100
+                };
+            }
+
+            /**
+             * Start Drawing / Press Handler
+             */
+            function handlePointerStart(e) {
+                e.preventDefault();
+                const coords = getCanvasCoordinates(e);
+                
+                state.isDrawing = true;
+                state.lastX = coords.x;
+                state.lastY = coords.y;
+
+                // Configure tool context
+                applyToolStyle();
+
+                if (state.activeTool !== 'crayon') {
+                    drawCtx.beginPath();
+                    drawCtx.moveTo(coords.x, coords.y);
+                }
+
+                // Long Press Detection Setup (500ms = 0.5 sec)
+                state.longPressStartPos = { x: coords.screenX, y: coords.screenY };
+                state.pendingPinCoords = { xPct: coords.xPct, yPct: coords.yPct };
+                
+                // Show SVG Circular Progress Ring animation at touch location
+                showProgressRing(coords.screenX, coords.screenY);
+
+                clearTimeout(state.longPressTimer);
+                state.longPressTimer = setTimeout(() => {
+                    // Trigger Long-press Memo modal after 0.5s completion
+                    triggerLongPressAction();
+                }, 500);
+            }
+
+            /**
+             * Pointer Move Handler
+             */
+            function handlePointerMove(e) {
+                if (!state.isDrawing) return;
+                e.preventDefault();
+
+                const coords = getCanvasCoordinates(e);
+                
+                // Check move distance: if user moves > 8px, cancel long-press timer & loading animation
+                const moveDistance = Math.hypot(coords.screenX - state.longPressStartPos.x, coords.screenY - state.longPressStartPos.y);
+                if (moveDistance > 8) {
+                    cancelLongPress();
+                }
+
+                if (state.activeTool === 'crayon') {
+                    drawCrayonSegment(state.lastX, state.lastY, coords.x, coords.y);
+                } else {
+                    drawCtx.lineTo(coords.x, coords.y);
+                    drawCtx.stroke();
+                }
+
+                state.lastX = coords.x;
+                state.lastY = coords.y;
+            }
+
+            /**
+             * Pointer End / Release Handler
+             */
+            function handlePointerEnd(e) {
+                if (!state.isDrawing) return;
+                state.isDrawing = false;
+                
+                cancelLongPress();
+                
+                if (state.activeTool !== 'crayon') {
+                    drawCtx.closePath();
+                }
+
+                saveHistoryState();
+            }
+
+            /**
+             * Long-press SVG Circular Progress Indicator (0.5s)
+             */
+            function showProgressRing(x, y) {
+                rippleOverlay.innerHTML = '';
+                const container = document.createElement('div');
+                container.className = 'absolute pointer-events-none transform -translate-x-1/2 -translate-y-1/2 z-40 drop-shadow-md';
+                container.style.left = `${x}px`;
+                container.style.top = `${y}px`;
+                
+                container.innerHTML = `
+                    <svg class="w-12 h-12" viewBox="0 0 48 48">
+                        <!-- Background track circle -->
+                        <circle cx="24" cy="24" r="20" stroke="rgba(255, 255, 255, 0.7)" stroke-width="4" fill="rgba(15, 23, 42, 0.45)"></circle>
+                        <!-- Center pin indicator dot -->
+                        <circle cx="24" cy="24" r="4" fill="#ef4444"></circle>
+                        <!-- Animated Progress Ring -->
+                        <circle cx="24" cy="24" r="20" stroke="#ef4444" stroke-width="4" fill="none"
+                                class="animate-progress-ring" stroke-linecap="round"
+                                transform="rotate(-90 24 24)"></circle>
+                    </svg>
+                `;
+                rippleOverlay.appendChild(container);
+            }
+
+            function cancelLongPress() {
+                clearTimeout(state.longPressTimer);
+                state.longPressTimer = null;
+                rippleOverlay.innerHTML = '';
+            }
+
+            /**
+             * Triggered when user holds press for 0.5 seconds
+             */
+            function triggerLongPressAction() {
+                state.isDrawing = false;
+                rippleOverlay.innerHTML = '';
+                
+                // Vibration feedback on supported touch devices
+                if (navigator.vibrate) {
+                    navigator.vibrate(40);
+                }
+
+                // Reset and open memo creation modal
+                memoText.value = '';
+                modalMemo.classList.remove('hidden');
+                setTimeout(() => memoText.focus(), 100);
+            }
+
+            /**
+             * Render Interactive Pin Markers over Canvas Overlay
+             */
+            function renderPins() {
+                pinsOverlay.innerHTML = '';
+                
+                state.pins.forEach(pin => {
+                    const pinEl = document.createElement('div');
+                    pinEl.className = 'absolute pointer-events-auto transform -translate-x-1/2 -translate-y-full cursor-pointer group pin-animated';
+                    pinEl.style.left = `${pin.xPct}%`;
+                    pinEl.style.top = `${pin.yPct}%`;
+                    
+                    pinEl.innerHTML = `
+                        <!-- Pin Marker Icon -->
+                        <div class="relative flex flex-col items-center">
+                            <div class="w-8 h-8 rounded-full flex items-center justify-center text-white shadow-lg transition-transform group-hover:scale-125 border-2 border-white" style="background-color: ${pin.color}">
+                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M10 2a6 6 0 00-6 6c0 4.418 6 10 6 10s6-5.582 6-10a6 6 0 00-6-6zm0 8a2 2 0 110-4 2 2 0 010 4z"/>
+                                </svg>
+                            </div>
+                            <div class="w-2 h-2 rounded-full bg-slate-900/40 blur-[1px] mt-0.5"></div>
+                            
+                            <!-- Hover Tooltip Preview -->
+                            <div class="absolute bottom-full mb-2 hidden group-hover:block z-30 bg-slate-900 text-white text-[11px] py-1.5 px-3 rounded-lg shadow-xl whitespace-nowrap max-w-xs truncate border border-slate-700 pointer-events-none">
+                                ${escapeHtml(pin.text)}
+                            </div>
+                        </div>
+                    `;
+
+                    // Click pin to open View/Delete Modal
+                    pinEl.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        openViewPinModal(pin);
+                    });
+
+                    pinsOverlay.appendChild(pinEl);
+                });
+            }
+
+            /**
+             * Save Pin to Array
+             */
+            function savePinMemo() {
+                const text = memoText.value.trim();
+                if (!text) {
+                    showToast('메모 내용을 입력해 주세요.', 'error');
+                    return;
+                }
+
+                const selectedColorEl = document.querySelector('input[name="pin-color"]:checked');
+                const pinColor = selectedColorEl ? selectedColorEl.value : '#ef4444';
+
+                const newPin = {
+                    id: 'pin_' + Date.now(),
+                    xPct: state.pendingPinCoords.xPct,
+                    yPct: state.pendingPinCoords.yPct,
+                    text: text,
+                    color: pinColor,
+                    date: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                };
+
+                state.pins.push(newPin);
+                renderPins();
+                modalMemo.classList.add('hidden');
+                showToast('📍 메모 핀이 생성되었습니다!');
+            }
+
+            /**
+             * Open View Pin Modal
+             */
+            function openViewPinModal(pin) {
+                state.activePinId = pin.id;
+                viewPinText.textContent = pin.text;
+                viewPinDate.textContent = pin.date;
+                viewPinBadge.style.backgroundColor = pin.color;
+                modalViewPin.classList.remove('hidden');
+            }
+
+            /**
+             * Delete Currently Selected Pin
+             */
+            function deletePin() {
+                if (!state.activePinId) return;
+                state.pins = state.pins.filter(p => p.id !== state.activePinId);
+                renderPins();
+                modalViewPin.classList.add('hidden');
+                showToast('메모 핀이 삭제되었습니다.');
+            }
+
+            /**
+             * Canvas History Engine (Undo / Redo)
+             */
+            function saveHistoryState() {
+                // Truncate history if index is not at end
+                if (state.historyIndex < state.history.length - 1) {
+                    state.history = state.history.slice(0, state.historyIndex + 1);
+                }
+
+                const imgData = drawCtx.getImageData(0, 0, drawCanvas.width, drawCanvas.height);
+                state.history.push(imgData);
+
+                if (state.history.length > state.maxHistory) {
+                    state.history.shift();
+                } else {
+                    state.historyIndex++;
+                }
+
+                updateUndoRedoButtons();
+            }
+
+            function undo() {
+                if (state.historyIndex > 0) {
+                    state.historyIndex--;
+                    drawCtx.putImageData(state.history[state.historyIndex], 0, 0);
+                    updateUndoRedoButtons();
+                    showToast('실행 취소');
+                }
+            }
+
+            function redo() {
+                if (state.historyIndex < state.history.length - 1) {
+                    state.historyIndex++;
+                    drawCtx.putImageData(state.history[state.historyIndex], 0, 0);
+                    updateUndoRedoButtons();
+                    showToast('다시 실행');
+                }
+            }
+
+            function updateUndoRedoButtons() {
+                btnUndo.disabled = state.historyIndex <= 0;
+                btnUndo.style.opacity = btnUndo.disabled ? '0.4' : '1';
+                
+                btnRedo.disabled = state.historyIndex >= state.history.length - 1;
+                btnRedo.style.opacity = btnRedo.disabled ? '0.4' : '1';
+            }
+
+            function clearDrawing() {
+                drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+                saveHistoryState();
+                showToast('필기 내용을 지웠습니다.');
+            }
+
+            /**
+             * LocalStorage Project Management
+             */
+            function saveProjectToLocalStorage() {
+                const title = projectTitleInput.value.trim() || '무제 메모';
+                
+                // Combine background canvas and drawing canvas into a thumbnail preserving actual aspect ratio
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = drawCanvas.width;
+                tempCanvas.height = drawCanvas.height;
+                const tempCtx = tempCanvas.getContext('2d');
+                
+                tempCtx.drawImage(bgCanvas, 0, 0);
+                tempCtx.drawImage(drawCanvas, 0, 0);
+
+                const projectData = {
+                    id: 'proj_' + Date.now(),
+                    title: title,
+                    updatedAt: new Date().toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
+                    bgData: state.bgImage ? state.bgImage.src : null, // dataURL if custom photo
+                    drawData: drawCanvas.toDataURL('image/png'),
+                    thumbnail: tempCanvas.toDataURL('image/jpeg', 0.6),
+                    width: drawCanvas.width,
+                    height: drawCanvas.height,
+                    pins: state.pins
+                };
+
+                let savedProjects = JSON.parse(localStorage.getItem('photopin_saved_projects') || '[]');
+                
+                const existingIdx = savedProjects.findIndex(p => p.title === title);
+                if (existingIdx >= 0) {
+                    savedProjects[existingIdx] = projectData;
+                } else {
+                    savedProjects.unshift(projectData);
+                }
+
+                localStorage.setItem('photopin_saved_projects', JSON.stringify(savedProjects));
+                updateSavedBadgeCount();
+                showToast('💾 사진과 메모가 성공적으로 저장되었습니다!');
+            }
+
+            function updateSavedBadgeCount() {
+                const savedProjects = JSON.parse(localStorage.getItem('photopin_saved_projects') || '[]');
+                savedCountBadge.textContent = savedProjects.length;
+            }
+
+            function openGalleryModal() {
+                const savedProjects = JSON.parse(localStorage.getItem('photopin_saved_projects') || '[]');
+                galleryGrid.innerHTML = '';
+
+                if (savedProjects.length === 0) {
+                    galleryEmptyState.classList.remove('hidden');
+                } else {
+                    galleryEmptyState.classList.add('hidden');
+                    savedProjects.forEach(proj => {
+                        const card = document.createElement('div');
+                        card.className = 'bg-white rounded-xl overflow-hidden border border-slate-200 shadow-sm hover:shadow-md transition flex flex-col justify-between group';
+                        
+                        card.innerHTML = `
+                            <div>
+                                <div class="relative aspect-video bg-slate-100 overflow-hidden">
+                                    <img src="${proj.thumbnail}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300" alt="Thumbnail">
+                                    <span class="absolute bottom-2 right-2 bg-slate-900/80 text-white text-[10px] px-2 py-0.5 rounded-full backdrop-blur-sm">
+                                        📍 핀 ${proj.pins ? proj.pins.length : 0}개
+                                    </span>
+                                </div>
+                                <div class="p-3">
+                                    <h4 class="font-bold text-xs text-slate-800 truncate" title="${escapeHtml(proj.title)}">${escapeHtml(proj.title)}</h4>
+                                    <p class="text-[11px] text-slate-400 mt-0.5">${proj.updatedAt}</p>
+                                </div>
+                            </div>
+                            <div class="p-3 pt-0 flex items-center space-x-2">
+                                <button data-id="${proj.id}" class="btn-load-proj flex-1 bg-sky-600 hover:bg-sky-500 text-white py-1.5 rounded-lg text-xs font-semibold transition">
+                                    불러오기
+                                </button>
+                                <button data-id="${proj.id}" class="btn-delete-proj p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg border border-slate-200 transition" title="삭제">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        `;
+
+                        // Load project action
+                        card.querySelector('.btn-load-proj').addEventListener('click', () => loadProject(proj));
+                        // Delete project action
+                        card.querySelector('.btn-delete-proj').addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            deleteProject(proj.id);
+                        });
+
+                        galleryGrid.appendChild(card);
+                    });
+                }
+
+                modalGallery.classList.remove('hidden');
+            }
+
+            function loadProject(project) {
+                projectTitleInput.value = project.title;
+                state.pins = project.pins || [];
+
+                // Adjust resolution based on saved project dimensions
+                const projW = project.width || 1200;
+                const projH = project.height || 800;
+
+                // Load Background Photo if present
+                if (project.bgData) {
+                    const img = new Image();
+                    img.onload = () => {
+                        state.bgImage = img;
+                        setCanvasResolution(img.naturalWidth || projW, img.naturalHeight || projH);
+                        renderDefaultSampleImage();
+
+                        // Load Drawing Layer after background resolution setup
+                        if (project.drawData) {
+                            const drawImg = new Image();
+                            drawImg.onload = () => {
+                                drawCtx.drawImage(drawImg, 0, 0, drawCanvas.width, drawCanvas.height);
+                                state.history = [];
+                                state.historyIndex = -1;
+                                saveHistoryState();
+                            };
+                            drawImg.src = project.drawData;
+                        }
+                    };
+                    img.src = project.bgData;
+                } else {
+                    state.bgImage = null;
+                    setCanvasResolution(projW, projH);
+                    renderDefaultSampleImage();
+
+                    if (project.drawData) {
+                        const drawImg = new Image();
+                        drawImg.onload = () => {
+                            drawCtx.drawImage(drawImg, 0, 0, drawCanvas.width, drawCanvas.height);
+                            state.history = [];
+                            state.historyIndex = -1;
+                            saveHistoryState();
+                        };
+                        drawImg.src = project.drawData;
+                    }
+                }
+
+                renderPins();
+                modalGallery.classList.add('hidden');
+                showToast(`'${project.title}' 작업물을 불러왔습니다.`);
+            }
+
+            /**
+             * User Custom Image Upload Handler
+             */
+            imageUploadInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        state.bgImage = img;
+                        // Dynamically set resolution matching the uploaded image's natural dimensions
+                        setCanvasResolution(img.naturalWidth, img.naturalHeight);
+                        drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+                        renderDefaultSampleImage();
+                        state.history = [];
+                        state.historyIndex = -1;
+                        saveHistoryState();
+                        showToast('새 사진을 불러왔습니다.');
+                    };
+                    img.src = event.target.result;
+                };
+                reader.readAsDataURL(file);
+            });
+
+            /**
+             * Toast Notification Component
+             */
+            function showToast(message, type = 'info') {
+                const container = document.getElementById('toast-container');
+                const toast = document.createElement('div');
+                toast.className = `bg-slate-900 text-white text-xs px-4 py-2.5 rounded-xl shadow-xl flex items-center space-x-2 border border-slate-700 transition transform translate-y-2 opacity-0 pointer-events-auto`;
+                toast.innerHTML = `
+                    <span class="text-sky-400">ℹ️</span>
+                    <span>${escapeHtml(message)}</span>
+                `;
+                container.appendChild(toast);
+
+                setTimeout(() => {
+                    toast.classList.remove('translate-y-2', 'opacity-0');
+                }, 10);
+
+                setTimeout(() => {
+                    toast.classList.add('opacity-0', 'translate-y-2');
+                    setTimeout(() => toast.remove(), 300);
+                }, 2500);
+            }
+
+            function escapeHtml(str) {
+                return str.replace(/[&<>"']/g, (m) => ({
+                    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
+                })[m]);
+            }
+
+            /**
+             * Event Listeners Registration
+             */
+            // Tool Selection
+            toolButtons.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    toolButtons.forEach(b => {
+                        b.classList.remove('active', 'bg-white', 'text-slate-900', 'font-semibold', 'shadow-sm');
+                        b.classList.add('text-slate-600');
+                    });
+                    btn.classList.add('active', 'bg-white', 'text-slate-900', 'font-semibold', 'shadow-sm');
+                    btn.classList.remove('text-slate-600');
+                    state.activeTool = btn.dataset.tool;
+                });
+            });
+
+            // Color Swatches
+            colorPresets.forEach(preset => {
+                preset.addEventListener('click', () => {
+                    colorPresets.forEach(p => p.classList.remove('ring-2', 'ring-slate-900'));
+                    preset.classList.add('ring-2', 'ring-slate-900');
+                    state.color = preset.dataset.color;
+                    customColorPicker.value = state.color;
+                });
+            });
+
+            customColorPicker.addEventListener('input', (e) => {
+                state.color = e.target.value;
+                colorPresets.forEach(p => p.classList.remove('ring-2', 'ring-slate-900'));
+            });
+
+            // Brush Size
+            brushSizeInput.addEventListener('input', (e) => {
+                state.brushSize = parseInt(e.target.value, 10);
+                brushSizeVal.textContent = state.brushSize;
+            });
+
+            // Canvas Pointer Events (Mouse & Touch)
+            drawCanvas.addEventListener('mousedown', handlePointerStart);
+            drawCanvas.addEventListener('mousemove', handlePointerMove);
+            window.addEventListener('mouseup', handlePointerEnd);
+
+            drawCanvas.addEventListener('touchstart', handlePointerStart, { passive: false });
+            drawCanvas.addEventListener('touchmove', handlePointerMove, { passive: false });
+            window.addEventListener('touchend', handlePointerEnd);
+
+            // Control Buttons
+            btnUndo.addEventListener('click', undo);
+            btnRedo.addEventListener('click', redo);
+            btnClear.addEventListener('click', clearDrawing);
+            btnSaveProject.addEventListener('click', saveProjectToLocalStorage);
+            btnOpenGallery.addEventListener('click', openGalleryModal);
+
+            // Modal Buttons
+            btnSaveMemo.addEventListener('click', savePinMemo);
+            btnCancelMemo.addEventListener('click', () => modalMemo.classList.add('hidden'));
+            btnCloseMemoModal.addEventListener('click', () => modalMemo.classList.add('hidden'));
+
+            btnDeletePin.addEventListener('click', deletePin);
+            btnCloseViewModal.addEventListener('click', () => modalViewPin.classList.add('hidden'));
+            btnCloseViewPin.addEventListener('click', () => modalViewPin.classList.add('hidden'));
+
+            btnCloseGalleryModal.addEventListener('click', () => modalGallery.classList.add('hidden'));
+            btnCloseGallery.addEventListener('click', () => modalGallery.classList.add('hidden'));
+
+            // Keyboard Shortcuts
+            window.addEventListener('keydown', (e) => {
+                if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+                    if (e.shiftKey) redo();
+                    else undo();
+                } else if ((e.ctrlKey || e.metaKey) && e.key === 'y') {
+                    redo();
+                }
+            });
+
+            // Initialize Canvas On Launch
+            initCanvasDimensions();
+        });
+    </script>
+</body>
+</html>
