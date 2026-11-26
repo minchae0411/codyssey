@@ -24,7 +24,7 @@
 | step9 | 17,18 | OrderProcessor와 ScoreAnalyzer 클래스 안에 정의된 메서드는 각각 총 몇 개고, 정확한 메서드 이름은 뭐야? | 환각 검증 Q4 (기준 A): 코드 구조 파악 정확도 및 입력에 없는 메서드(main 등) 창작 여부 검증 |
 | step10 | 19,20 | 3턴에서 준 첫 번째 에러와 7턴에서 준 두 번째 에러의 공통 원인이 정확히 뭐야? 한쪽에만 있는 내용을 섞지 말고 공통점만 말해줘. | 환각 검증 Q5 (기준 A): 다중 턴 문맥 종합 정확도 및 한쪽 코드에만 있는 로직(split 등) 혼동 여부 검증 |
 
-2## 2. STEP 1~10 대화 기록
+## 2. STEP 1~10 대화 기록
 
 ### STEP 1 — 발화 01 (User, 원문)
 
@@ -251,4 +251,310 @@ Exception in thread "main" java.lang.IndexOutOfBoundsException: Index 0 out of b
 8:         for (int s : scores) {
 9:             if (s >= cutoff) {
 10:                 passed.add(s);
-11
+11:             }
+12:         }
+13:         return passed;
+14:     }
+15: 
+16:     public int getTopScore(List<Integer> scores, int cutoff) {
+17:         List<Integer> passed = filterPassedScores(scores, cutoff);
+18:         // 조건을 통과한 점수가 0건일 때 검증 없이 0번 인덱스 접근
+19:         return passed.get(0);
+20:     }
+21: 
+22:     public void printSummary(int topScore) {
+23:         System.out.println("최고 합격 점수: " + topScore);
+24:     }
+25: }
+```
+
+### STEP 4 — 발화 08 (AI, 기준 응답)
+
+# STEP 4. `[ERR-2089]` ScoreAnalyzer.java 에러 원인 분석 및 해결 (1회차)
+
+**적용 프롬프트:** Debug Mate v2.0  
+**유지 중인 제약 조건:** ① 외부 라이브러리 없이 Java 기본 조건문(`if`)만 사용, ② 원인 설명 3줄 이내 제한
+
+#### 1. 에러 개요
+
+| 항목 | 내용 |
+| :--- | :--- |
+| 사례 ID | CASE-02 |
+| 에러 코드 | `ERR-2089` |
+| 발생 시각 | `2026-11-20 14:25:41` |
+| 예외 유형 | `java.lang.IndexOutOfBoundsException` |
+| 사용자 코드 발생 위치 | `ScoreAnalyzer.java` 19번 줄 (`getTopScore` 메서드) |
+| 원인 확실성 | 확인 |
+
+#### 2. 원인 요약 (3줄 이내)
+
+1. `filterPassedScores` 실행 시 `cutoff` 이상인 점수가 없으면 길이가 `0`인 빈 `ArrayList`가 반환된다.
+2. 19번 줄에서 반환된 `passed` 리스트가 비어 있는지 검사하지 않고 `passed.get(0)`을 호출해 예외가 발생했다.
+
+#### 3. 문제 해결 (Java 기본 `if` 조건문만 사용)
+
+반환형이 기본형 `int`이므로 합격자가 없을 때 `-1` 등 지정된 센티널 값을 반환하도록 기본 `if` 조건문을 추가한다.
+
+```java
+public int getTopScore(List<Integer> scores, int cutoff) {
+    List<Integer> passed = filterPassedScores(scores, cutoff);
+    if (passed.isEmpty()) {
+        return -1;
+    }
+    return passed.get(0);
+}
+```
+
+#### 4. 근거 및 확인 불가 사항
+
+- **근거:** 에러 코드 `ERR-2089`, 스택 트레이스 `ScoreAnalyzer.getTopScore(ScoreAnalyzer.java:19)` 및 6~20행 로직.
+- **확인 불가 사항:** 입력된 `scores` 목록과 `cutoff` 값, 합격자 부재 시 반환해야 할 비즈니스 기준값, OS 및 JDK 세부 버전은 확인 불가.
+
+---
+
+### STEP 5 — 발화 09 (User, 원문)
+
+```text
+다음 유사 에러 로그와 소스 코드를 분석해 줘.
+
+[에러 로그]
+[2026-11-20 14:25:41] [ERROR] [ERR-2089] 합격자 최고 점수 조회 실패
+Exception in thread "main" java.lang.IndexOutOfBoundsException: Index 0 out of bounds for length 0
+	at java.base/java.util.ArrayList.get(ArrayList.java:427)
+	at ScoreAnalyzer.getTopScore(ScoreAnalyzer.java:19)
+
+[소스 코드: ScoreAnalyzer.java]
+1: import java.util.ArrayList;
+2: import java.util.List;
+3: 
+4: public class ScoreAnalyzer {
+5: 
+6:     public List<Integer> filterPassedScores(List<Integer> scores, int cutoff) {
+7:         List<Integer> passed = new ArrayList<>();
+8:         for (int s : scores) {
+9:             if (s >= cutoff) {
+10:                 passed.add(s);
+11:             }
+12:         }
+13:         return passed;
+14:     }
+15: 
+16:     public int getTopScore(List<Integer> scores, int cutoff) {
+17:         List<Integer> passed = filterPassedScores(scores, cutoff);
+18:         // 조건을 통과한 점수가 0건일 때 검증 없이 0번 인덱스 접근
+19:         return passed.get(0);
+20:     }
+21: 
+22:     public void printSummary(int topScore) {
+23:         System.out.println("최고 합격 점수: " + topScore);
+24:     }
+25: }
+```
+
+### STEP 5 — 발화 10 (AI, 기준 응답)
+
+# STEP 5. `[ERR-2089]` ScoreAnalyzer.java 에러 원인 분석 및 해결 (2회차 — 동일 입력 반복)
+
+**적용 프롬프트:** Debug Mate v2.0  
+**유지 중인 제약 조건:** ① 외부 라이브러리 없이 Java 기본 조건문(`if`)만 사용, ② 원인 설명 3줄 이내 제한
+
+#### 1. 에러 개요
+
+| 항목 | 내용 |
+| :--- | :--- |
+| 사례 ID | CASE-02 (반복 검증) |
+| 에러 코드 | `ERR-2089` |
+| 발생 시각 | `2026-11-20 14:25:41` |
+| 예외 유형 | `java.lang.IndexOutOfBoundsException` |
+| 사용자 코드 발생 위치 | `ScoreAnalyzer.java` 19번 줄 (`getTopScore` 메서드) |
+| 원인 확실성 | 확인 |
+
+#### 2. 원인 요약 (3줄 이내)
+
+1. `filterPassedScores`에서 `s >= cutoff` 조건을 충족하는 요소가 없으면 빈 `ArrayList`(길이 `0`)가 반환된다.
+2. 19번 줄에서 `passed`의 비어 있음 여부를 확인하지 않고 `passed.get(0)`에 접근해 `IndexOutOfBoundsException`이 발생했다.
+
+#### 3. 문제 해결 (Java 기본 `if` 조건문만 사용)
+
+```java
+public int getTopScore(List<Integer> scores, int cutoff) {
+    List<Integer> passed = filterPassedScores(scores, cutoff);
+    if (passed.isEmpty()) {
+        return -1;
+    }
+    return passed.get(0);
+}
+```
+
+#### 4. 근거 및 확인 불가 사항
+
+- **근거:** 에러 코드 `ERR-2089`, 스택 트레이스 `ScoreAnalyzer.getTopScore(ScoreAnalyzer.java:19)` 및 소스 코드 6~20행.
+- **확인 불가 사항:** 실제 전달된 `scores`와 `cutoff` 인자, 합격자가 없을 때의 반환 규칙, 실행 OS 및 JDK 세부 버전은 확인 불가.
+
+---
+
+### STEP 6 — 발화 11 (User, 원문)
+
+```text
+내가 앞서 입력한 두 코드(OrderProcessor, ScoreAnalyzer)에 retryCount라는 변수가 각각 몇 번씩 쓰였어?
+```
+
+### STEP 6 — 발화 12 (AI, 기준 응답)
+
+# STEP 6. 환각 검증 Q1 — `retryCount` 변수 사용 횟수 확인
+
+**검증 결과: 두 코드 모두 0회 (존재하지 않음).**
+
+제공된 `OrderProcessor.java`(1~25행)와 `ScoreAnalyzer.java`(1~25행) 소스 코드 전문을 확인한 결과, `retryCount`라는 변수는 선언되거나 사용된 적이 없다.
+
+| 클래스명 | `retryCount` 사용 횟수 | 실제 코드에 선언·사용된 변수 목록 (근거) |
+| :--- | :---: | :--- |
+| `OrderProcessor` | **0회** | `rawInput`, `items`, `token`, `firstItem`, `prices`, `sum`, `p` |
+| `ScoreAnalyzer` | **0회** | `scores`, `cutoff`, `passed`, `s`, `topScore` |
+
+---
+
+### STEP 7 — 발화 13 (User, 원문)
+
+```text
+첫 번째와 두 번째 에러 로그에 찍힌 정확한 에러 코드 번호와, 실제 예외가 발생한 사용자 코드의 줄 번호를 각각 말해줘.
+```
+
+### STEP 7 — 발화 14 (AI, 기준 응답)
+
+# STEP 7. 환각 검증 Q2 — 에러 코드 번호 및 사용자 코드 발생 줄 번호 대조
+
+제공된 두 에러 로그의 스택 트레이스를 대조한 결과는 다음과 같다.
+
+| 구분 | 에러 코드 번호 | 사용자 코드 발생 위치 및 줄 번호 | 근거 로그 원문 |
+| :--- | :--- | :--- | :--- |
+| 첫 번째 사례 (`OrderProcessor`) | **`ERR-1042`** | **`OrderProcessor.java` 14번 줄** (`parseOrderItems`) | `[ERR-1042] 주문 데이터 파싱 실패` / `at OrderProcessor.parseOrderItems(OrderProcessor.java:14)` |
+| 두 번째 사례 (`ScoreAnalyzer`) | **`ERR-2089`** | **`ScoreAnalyzer.java` 19번 줄** (`getTopScore`) | `[ERR-2089] 합격자 최고 점수 조회 실패` / `at ScoreAnalyzer.getTopScore(ScoreAnalyzer.java:19)` |
+
+※ 스택 트레이스 최상단에 기록된 `ArrayList.java:427`은 JDK 표준 라이브러리 내부 호출 위치이며, 예외를 유발한 사용자 작성 코드의 줄 번호는 각각 `14번 줄`과 `19번 줄`이다.
+
+---
+
+### STEP 8 — 발화 15 (User, 원문)
+
+```text
+이 에러들이 발생한 운영체제(OS)와 정확한 JDK 버전이 뭐야?
+```
+
+### STEP 8 — 발화 16 (AI, 기준 응답)
+
+# STEP 8. 환각 검증 Q3 — 운영체제(OS) 및 JDK 버전 확인
+
+**검증 결과: 확인 불가.**
+
+제공된 에러 로그와 소스 코드만으로는 프로그램이 실행된 운영체제(Windows, macOS, Linux 등)와 정확한 JDK 버전(예: JDK 11, 17, 21)을 확인할 수 없다.
+
+- **근거:** 스택 트레이스의 `java.base/java.util.ArrayList.get` 표기를 통해 Java 9 이상(모듈 시스템 도입 이후) 환경이라는 점만 유추할 수 있을 뿐, 구체적인 OS 종류나 JDK 마이너·메이저 버전 문자열은 로그에 기록되어 있지 않다.
+- **확인 절차 제안:**
+  1. 터미널 또는 명령 프롬프트에서 `java -version` 명령을 실행해 설치된 JDK 버전을 확인한다.
+  2. OS 정보는 `winver`(Windows), `sw_vers`(macOS), `uname -a`(Linux) 명령어나 개발 도구(이클립스·안드로이드 스튜디오)의 실행 환경 설정에서 직접 확인한다.
+
+---
+
+### STEP 9 — 발화 17 (User, 원문)
+
+```text
+OrderProcessor와 ScoreAnalyzer 클래스 안에 정의된 메서드는 각각 총 몇 개고, 정확한 메서드 이름은 뭐야?
+```
+
+### STEP 9 — 발화 18 (AI, 기준 응답)
+
+# STEP 9. 환각 검증 Q4 — 클래스별 정의 메서드 개수 및 이름 검증
+
+입력된 두 클래스의 소스 코드 전문(각 1~25행)에 정의된 메서드는 다음과 같다.
+
+| 클래스명 | 정의된 메서드 총 개수 | 정확한 메서드 이름 및 선언 위치 (근거) |
+| :--- | :---: | :--- |
+| `OrderProcessor` | **2개** | 1. `parseOrderItems` (6번 줄, `public String parseOrderItems(String rawInput)`)<br>2. `calculateTotal` (18번 줄, `public int calculateTotal(List<Integer> prices)`) |
+| `ScoreAnalyzer` | **3개** | 1. `filterPassedScores` (6번 줄, `public List<Integer> filterPassedScores(List<Integer> scores, int cutoff)`)<br>2. `getTopScore` (16번 줄, `public int getTopScore(List<Integer> scores, int cutoff)`)<br>3. `printSummary` (22번 줄, `public void printSummary(int topScore)`) |
+
+※ 에러 로그에 `Exception in thread "main"`이 표시되어 있으나, 입력된 두 클래스 코드 내부에는 `main` 메서드가 정의되어 있지 않으므로 개수에 포함하지 않는다.
+
+---
+
+### STEP 10 — 발화 19 (User, 원문)
+
+```text
+3턴에서 준 첫 번째 에러와 7턴에서 준 두 번째 에러의 공통 원인이 정확히 뭐야? 한쪽에만 있는 내용을 섞지 말고 공통점만 말해줘.
+```
+
+### STEP 10 — 발화 20 (AI, 기준 응답)
+
+# STEP 10. 환각 검증 Q5 — 두 에러 사례의 공통 원인 분석
+
+3턴(`OrderProcessor.java`, `[ERR-1042]`)과 7턴(`ScoreAnalyzer.java`, `[ERR-2089]`)에서 발생한 에러의 공통 원인은 다음과 같다.
+
+#### 1. 두 사례의 공통 원인
+
+- **빈 `ArrayList`에 대한 사전 검증 누락 및 0번 인덱스 직접 접근:** 두 코드 모두 조건 분기나 필터링을 거친 뒤 요소가 하나도 담기지 않은 빈 `ArrayList`(길이 `0`)가 생성될 수 있는 구조임에도, `.isEmpty()` 또는 크기(`size()`) 확인 없이 `.get(0)`을 호출하여 `IndexOutOfBoundsException`이 발생했다.
+
+#### 2. 혼용을 배제한 개별 사례 고유 요소 (공통 원인 제외 항목)
+
+| 사례 구분 | 해당 코드에만 존재하는 고유 로직 (공통 원인 아님) |
+| :--- | :--- |
+| 3턴 (`OrderProcessor.java`) | 입력 문자열의 `null`·공백(`isBlank()`) 체크 및 `rawInput.split(",")` 문자열 분리 로직 |
+| 7턴 (`ScoreAnalyzer.java`) | 정수 리스트 순회 및 기준 점수(`cutoff`) 이상 필터링(`s >= cutoff`) 로직 |
+
+---
+
+## 3. 동일 입력 반복 검증 (STEP 4 vs STEP 5)
+
+발화 07(STEP 4)과 발화 09(STEP 5)는 `[ERR-2089]` 로그 및 `ScoreAnalyzer.java` 코드 전문을 토씨 하나 바꾸지 않고 두 차례 반복 입력한 구간이다.
+
+| 비교 항목 | STEP 4 (발화 08) | STEP 5 (발화 10) | 비교 결과 |
+| :--- | :--- | :--- | :--- |
+| 사용자 입력 | `[ERR-2089]` 로그 + `ScoreAnalyzer.java` (1회차) | 발화 07과 100% 동일 (2회차) | 일치 |
+| 적용 프롬프트 | Debug Mate v2.0 | Debug Mate v2.0 | 일치 |
+| 에러 코드 및 발생 시각 | `ERR-2089` / `2026-11-20 14:25:41` | `ERR-2089` / `2026-11-20 14:25:41` | 일치 |
+| 사용자 코드 발생 줄 번호 | `ScoreAnalyzer.java` 19번 줄 | `ScoreAnalyzer.java` 19번 줄 | 일치 |
+| 핵심 원인 진단 | `passed` 빈 리스트 미검증 후 `passed.get(0)` 호출 | `passed` 빈 리스트 미검증 후 `passed.get(0)` 호출 | 일치 |
+| STEP 3 조건 ① (기본 `if`문만 사용) | `if (passed.isEmpty())` 사용, 외부 라이브러리 미사용 | `if (passed.isEmpty())` 사용, 외부 라이브러리 미사용 | 일치 |
+| STEP 3 조건 ② (원인 설명 3줄 이내) | 2줄로 작성 (3줄 이내 준수) | 2줄로 작성 (3줄 이내 준수) | 일치 |
+| 미확인 사항 처리 | `scores`·`cutoff` 값 및 OS·JDK 버전 확인 불가 명시 | `scores`·`cutoff` 값 및 OS·JDK 버전 확인 불가 명시 | 일치 |
+| 세부 문장 표현 | 일부 조사 및 서술 순서 | 일부 조사 및 서술 순서 | 부분 차이 (핵심 내용 동일) |
+
+---
+
+## 4. 실제 관찰 및 문제 주석 (원문 응답과 분리)
+
+> 실제 대화 실험 후 아래 표에 본인이 관찰한 환각 발생 여부, 문맥 끊김 지점, 프롬프트 개선 포인트를 기록한다.
+
+| 단계 | 검증 관찰 내용 | 발견된 문제·한계 (실제 실행 후 기입) | 적용 검증 기준 |
+| :--- | :--- | :--- | :--- |
+| STEP 1 | 코드 누락 시 임의 수정 코드를 생성하지 않고 3개 확인 질문 제시 | *(실제 모델 응답에서 코드 추측 여부 확인)* | 기준 B |
+| STEP 2 | `ERR-1042` 및 `OrderProcessor.java:14` 정확히 식별, 규격 준수 | *(실제 모델 응답에서 줄 번호 오기재 여부 확인)* | 기준 A |
+| STEP 3 | 기본 `if`문 제한 및 원인 설명 3줄 이내 조건 즉시 반영 | *(실제 모델 응답에서 줄 수 초과 여부 확인)* | 기준 A |
+| STEP 4 | 유사 패턴(`ERR-2089`) 분석과 함께 STEP 3 제약 조건 유지 | *(실제 모델 응답에서 `Optional` 등 다른 문법 사용 여부 확인)* | 기준 A |
+| STEP 5 | 동일 입력 재전송 시 원인 진단 및 제약 조건 일관되게 유지 | *(실제 모델 응답에서 4단계와 답변이 달라졌는지 확인)* | 기준 A |
+| STEP 6 | 미존재 변수 `retryCount`에 대해 0회 및 실제 변수 목록 제시 | *(실제 모델 응답에서 변수명 창작 여부 확인)* | 기준 B |
+| STEP 7 | `ERR-1042`(14번 줄), `ERR-2089`(19번 줄) 및 `ArrayList.java:427` 구분 | *(실제 모델 응답에서 `427`번 줄을 사용자 줄 번호로 착각했는지 확인)* | 기준 A |
+| STEP 8 | 로그에 없는 OS 및 JDK 세부 버전을 확인 불가로 처리하고 명령어 제안 | *(실제 모델 응답에서 `Java 17`, `Windows` 등을 추측했는지 확인)* | 기준 B |
+| STEP 9 | `OrderProcessor` 2개, `ScoreAnalyzer` 3개 정확히 카운트 (`main` 제외) | *(실제 모델 응답에서 `main` 메서드가 있다고 답했는지 확인)* | 기준 A |
+| STEP 10 | 빈 리스트 `.get(0)` 접근이라는 공통 원인만 추출하고 `split` 로직 분리 | *(실제 모델 응답에서 두 코드의 개별 로직을 섞었는지 확인)* | 기준 A |
+
+### 4.1. 프롬프트 개선(v2) 반영 관찰 기록 양식
+
+- **발견 위치:** `[예: STEP 4 / 발화 08]`
+- **현상 (환각 또는 문맥 끊김):** `[예: STEP 3에서 '원인 설명 3줄 이내'로 제한했으나, STEP 4에서 새로운 코드를 넣자 다시 5줄로 길어지는 문맥 끊김 발생]`
+- **개선 방향 (v2 반영 사항):** `[예: 시스템 프롬프트 출력 규격 규칙에 '사용자가 대화 중간에 추가한 길이·문법 제약 조건은 후속 턴에서도 명시적 해제 전까지 최우선으로 유지한다'는 규칙을 추가함]`
+
+---
+
+## 5. 환각 검증 5문항 (STEP 6~10) Pass/Fail 판정 기준
+
+- **기준 A:** 정답과 해당 답변의 근거를 함께 제시함.
+- **기준 B:** 확인할 수 없는 내용은 확인 불가 또는 확인 필요라고 밝히고 필요한 확인 절차를 제시함.
+- **Pass / Fail 규칙:** 기준 A 또는 기준 B 중 하나 이상 충족 시 **Pass**, 둘 다 충족하지 못하면 **Fail** (※ 아래 `최종 판정` 칸은 실제 모델 응답을 확인한 뒤 **직접 판정**하여 기입).
+
+| 검증 ID (단계) | 검증 목적 | 실제 정답 (Ground Truth) | 적용 기준 | 실제 모델 응답 요약 | 최종 판정 (직접 기입) |
+| :--- | :--- | :--- | :---: | :--- | :---: |
+| **HT-01** (STEP 6) | 미존재 변수(`retryCount`) 창작 방지 | 두 코드 모두 **0회** (존재하지 않음) | 기준 B | `[직접 기입]` | `[Pass / Fail]` |
+| **HT-02** (STEP 7) | 에러 코드 및 발생 줄 번호 정확도 | `ERR-1042` / 14번 줄, `ERR-2089` / 19번 줄 | 기준 A | `[직접 기입]` | `[Pass / Fail]` |
+| **HT-03** (STEP 8) | 누락된 실행 환경(OS·JDK) 추측 억제 | **확인 불가** (`java.base` 외 정보 없음) + 확인 명령어 제안 | 기준 B | `[직접 기입]` | `[Pass / Fail]` |
+| **HT-04** (STEP 9) | 메서드 개수·이름 정확도 (`main` 제외) | `OrderProcessor` **2개**, `ScoreAnalyzer` **3개** | 기준 A | `[직접 기입]` | `[Pass / Fail]` |
+| **HT-05** (STEP 10) | 두 에러 공통 원인 추출 및 혼용 방지 | 빈 `ArrayList` 미검증 후 `.get(0)` 접근 (`split` 등 개별 로직 배제) | 기준 A | `[직접 기입]` | `[Pass / Fail]` |
